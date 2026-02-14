@@ -1,0 +1,37 @@
+.burger{
+    width: 100%;
+    &::after, &::before{
+        content: "";
+        display: block;
+        height: 2px;
+        width: 40%;
+        margin: auto;
+        background-color: rgb(255, 255, 255);
+        position: relative;
+        transition: transform 0.3s;
+    }
+
+    &::after{
+        top: -5px;
+    }
+
+    &::before{
+        top: 5px;
+    }
+}
+
+.burgerActive{
+
+    &::after{
+        transform: rotate(45deg);
+        top: 0px;
+        background-color: black;
+    }
+
+    &::before{
+        transform: rotate(-45deg);
+        top: 1px;
+        background-color: black;
+    }
+    
+}
