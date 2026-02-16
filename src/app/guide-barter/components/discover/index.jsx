@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from "react"
-import { FiSearch, FiUsers, FiAlertCircle } from "react-icons/fi"
+import { FiSearch, FiUsers, FiAlertCircle, FiFilter, FiTrendingUp } from "react-icons/fi"
 import UserCard from "../user-card"
 import { skillSuggestions } from "../../data"
 
@@ -12,6 +12,7 @@ export default function DiscoverPanel({ currentUser }) {
     const [loading, setLoading] = useState(false)
     const [showSuggestions, setShowSuggestions] = useState(false)
     const [mode, setMode] = useState("all") // "all" | "matches"
+    const [sortBy, setSortBy] = useState("default") // "default" | "match" | "name"
 
     // Fetch all users
     useEffect(() => {
@@ -87,118 +88,187 @@ export default function DiscoverPanel({ currentUser }) {
         ).slice(0, 8)
         : []
 
-    const displayUsers = mode === "matches" ? matches.map((m) => m.user) : users
+    // Build display list with match data attached
+    let displayList = []
+    if (mode === "matches") {
+        displayList = matches.map((m) => ({ ...m.user, _matchData: m }))
+    } else {
+        displayList = users.map((u) => {
+            const matchInfo = matches.find((m) => m.user.id === u.id)
+            return { ...u, _matchData: matchInfo || null }
+        })
+    }
+
+    // Sort
+    if (sortBy === "match") {
+        displayList.sort((a, b) => (b._matchData?.matchScore || 0) - (a._matchData?.matchScore || 0))
+    } else if (sortBy === "name") {
+        displayList.sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+    }
+
+    const popularSkills = ["React", "Python", "Node.js", "JavaScript", "Docker", "Machine Learning", "Flutter", "TypeScript"]
 
     return (
         <div className="space-y-6">
-            {/* Search Bar */}
-            <form onSubmit={handleSearch} className="relative">
-                <div className="flex items-center gap-3 bg-white rounded-full border border-neutral-200 px-5 py-3 shadow-sm focus-within:border-[#FF885B] focus-within:shadow-md transition-all">
-                    <FiSearch className="size-5 text-neutral-400 shrink-0" />
-                    <input
-                        type="text"
-                        placeholder="Search skills... (e.g., React, Python, Node.js)"
-                        className="flex-1 bg-transparent outline-none text-neutral-700 font-sora text-sm placeholder:text-neutral-400"
-                        value={searchQuery}
-                        onChange={(e) => {
-                            setSearchQuery(e.target.value)
-                            setShowSuggestions(true)
-                        }}
-                        onFocus={() => setShowSuggestions(true)}
-                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                    />
-                    <button
-                        type="submit"
-                        className="px-4 py-1.5 bg-neutral-900 text-white rounded-full text-xs font-sora font-medium hover:bg-[#FF885B] transition-colors"
-                    >
-                        Search
-                    </button>
-                </div>
-                {/* Suggestions Dropdown */}
-                {showSuggestions && filteredSuggestions.length > 0 && (
-                    <div className="absolute top-full mt-2 left-0 right-0 bg-white rounded-xl shadow-lg border border-neutral-100 overflow-hidden z-20">
-                        {filteredSuggestions.map((skill) => (
-                            <button
-                                type="button"
-                                key={skill}
-                                className="w-full text-left px-5 py-2.5 text-sm font-sora text-neutral-600 hover:bg-neutral-50 hover:text-[#FF885B] transition-colors"
-                                onMouseDown={() => {
-                                    setSearchQuery(skill)
-                                    setShowSuggestions(false)
-                                    fetchUsers(skill)
-                                }}
-                            >
-                                {skill}
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </form>
+            {/* Hero Search Section */}
+            <div className="bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 rounded-2xl p-6 md:p-8">
+                <h2 className="font-syne font-bold text-white text-xl md:text-2xl mb-1">
+                    Discover Skill Partners
+                </h2>
+                <p className="text-neutral-400 font-sora text-sm mb-5">
+                    Find people who know what you want to learn — and want to learn what you know.
+                </p>
 
-            {/* Toggle Mode */}
-            {currentUser && (
-                <div className="flex items-center gap-3">
+                {/* Search Bar */}
+                <form onSubmit={handleSearch} className="relative">
+                    <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 px-5 py-3.5 focus-within:border-[#FF885B]/50 focus-within:bg-white/15 transition-all">
+                        <FiSearch className="size-5 text-neutral-400 shrink-0" />
+                        <input
+                            type="text"
+                            placeholder="Search by skill — React, Python, Machine Learning..."
+                            className="flex-1 bg-transparent outline-none text-white font-sora text-sm placeholder:text-neutral-500"
+                            value={searchQuery}
+                            onChange={(e) => {
+                                setSearchQuery(e.target.value)
+                                setShowSuggestions(true)
+                            }}
+                            onFocus={() => setShowSuggestions(true)}
+                            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                        />
+                        <button
+                            type="submit"
+                            className="px-5 py-2 bg-[#FF885B] text-white rounded-lg text-xs font-sora font-semibold hover:bg-[#FF6B3D] transition-colors"
+                        >
+                            Search
+                        </button>
+                    </div>
+                    {/* Suggestions Dropdown */}
+                    {showSuggestions && filteredSuggestions.length > 0 && (
+                        <div className="absolute top-full mt-2 left-0 right-0 bg-white rounded-xl shadow-xl border border-neutral-100 overflow-hidden z-20">
+                            {filteredSuggestions.map((skill) => (
+                                <button
+                                    type="button"
+                                    key={skill}
+                                    className="w-full text-left px-5 py-3 text-sm font-sora text-neutral-600 hover:bg-[#FF885B]/5 hover:text-[#FF885B] transition-colors flex items-center gap-2"
+                                    onMouseDown={() => {
+                                        setSearchQuery(skill)
+                                        setShowSuggestions(false)
+                                        fetchUsers(skill)
+                                    }}
+                                >
+                                    <FiSearch className="size-3 text-neutral-300" />
+                                    {skill}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </form>
+
+                {/* Popular Skill Tags */}
+                <div className="flex flex-wrap gap-2 mt-4">
+                    <span className="text-xs text-neutral-500 font-sora py-1">Trending:</span>
+                    {popularSkills.map((skill) => (
+                        <button
+                            key={skill}
+                            onClick={() => {
+                                setSearchQuery(skill)
+                                fetchUsers(skill)
+                            }}
+                            className="px-3 py-1 rounded-full text-xs font-sora font-medium bg-white/5 text-neutral-300 border border-white/10 hover:border-[#FF885B]/40 hover:text-[#FF885B] transition-all"
+                        >
+                            {skill}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Controls Bar */}
+            <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-2">
+                    {/* Mode Toggle */}
                     <button
                         onClick={() => { setMode("all"); fetchUsers(searchQuery) }}
                         className={`px-4 py-2 rounded-full text-xs font-sora font-medium transition-all ${mode === "all"
-                                ? "bg-neutral-900 text-white"
-                                : "bg-white text-neutral-600 border border-neutral-200 hover:border-neutral-400"
+                            ? "bg-neutral-900 text-white shadow-sm"
+                            : "bg-white text-neutral-600 border border-neutral-200 hover:border-neutral-400"
                             }`}
                     >
                         <FiUsers className="inline mr-1.5 size-3.5" />
-                        All Users
+                        All Users ({users.length})
                     </button>
-                    <button
-                        onClick={() => setMode("matches")}
-                        className={`px-4 py-2 rounded-full text-xs font-sora font-medium transition-all ${mode === "matches"
-                                ? "bg-[#FF885B] text-white"
+                    {currentUser && (
+                        <button
+                            onClick={() => setMode("matches")}
+                            className={`px-4 py-2 rounded-full text-xs font-sora font-medium transition-all ${mode === "matches"
+                                ? "bg-[#FF885B] text-white shadow-sm"
                                 : "bg-white text-neutral-600 border border-neutral-200 hover:border-[#FF885B]"
-                            }`}
+                                }`}
+                        >
+                            🤝 My Matches ({matches.length})
+                        </button>
+                    )}
+                </div>
+
+                {/* Sort */}
+                <div className="flex items-center gap-2">
+                    <FiFilter className="size-3.5 text-neutral-400" />
+                    <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                        className="bg-white border border-neutral-200 rounded-lg px-3 py-1.5 text-xs font-sora text-neutral-600 outline-none focus:border-[#FF885B]"
                     >
-                        🤝 My Matches
-                    </button>
+                        <option value="default">Default</option>
+                        <option value="match">Match % (High→Low)</option>
+                        <option value="name">Name (A→Z)</option>
+                    </select>
+                </div>
+            </div>
+
+            {/* Alert for unregistered users */}
+            {!currentUser && (
+                <div className="flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl text-sm font-sora text-amber-800 border border-amber-100">
+                    <FiAlertCircle className="size-5 shrink-0 text-amber-500" />
+                    <p>Create your profile in the <strong>My Profile</strong> tab to unlock skill matching and send collab requests.</p>
                 </div>
             )}
 
             {/* Results */}
-            {!currentUser && (
-                <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 rounded-xl text-sm font-sora text-amber-700">
-                    <FiAlertCircle className="size-4 shrink-0" />
-                    <p>Create your profile in the <strong>My Profile</strong> tab to find matches and send collab requests.</p>
-                </div>
-            )}
-
             {loading ? (
-                <div className="flex items-center justify-center py-20">
-                    <div className="size-8 border-2 border-neutral-300 border-t-[#FF885B] rounded-full animate-spin" />
+                <div className="flex flex-col items-center justify-center py-20">
+                    <div className="size-10 border-2 border-neutral-200 border-t-[#FF885B] rounded-full animate-spin mb-3" />
+                    <p className="text-sm text-neutral-400 font-sora">Discovering users...</p>
                 </div>
-            ) : displayUsers.length === 0 ? (
+            ) : displayList.length === 0 ? (
                 <div className="text-center py-20 text-neutral-400 font-sora">
-                    <FiUsers className="size-12 mx-auto mb-3 opacity-30" />
-                    <p className="text-lg font-medium">No users found</p>
+                    <FiUsers className="size-14 mx-auto mb-4 opacity-20" />
+                    <p className="text-lg font-medium text-neutral-500">No users found</p>
                     <p className="text-sm mt-1">
                         {mode === "matches"
-                            ? "No matches yet. More users need to register!"
-                            : "Be the first to register your skills!"}
+                            ? "No matches yet — more users need to register!"
+                            : searchQuery
+                                ? `No one with "${searchQuery}" skills yet. Be the first!`
+                                : "Be the first to register your skills!"}
                     </p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {displayUsers.map((user, idx) => {
-                        const matchInfo = mode === "matches"
-                            ? matches.find((m) => m.user.id === user.id)
-                            : undefined
-                        return (
+                <>
+                    {/* Results Count */}
+                    <p className="text-xs font-sora text-neutral-400 px-1">
+                        Showing {displayList.length} {mode === "matches" ? "matches" : "users"}
+                        {searchQuery && <> for <span className="text-[#FF885B] font-medium">&quot;{searchQuery}&quot;</span></>}
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                        {displayList.map((user, idx) => (
                             <UserCard
                                 key={user.id || idx}
                                 user={user}
-                                matchData={matchInfo}
+                                matchData={user._matchData}
                                 currentUserId={currentUser?.id}
                                 onSendCollab={handleSendCollab}
                             />
-                        )
-                    })}
-                </div>
+                        ))}
+                    </div>
+                </>
             )}
         </div>
     )

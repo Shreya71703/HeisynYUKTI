@@ -157,6 +157,47 @@ export async function GET(request, { params }) {
             );
         });
 
+        // Badge System
+        const badges = [];
+        // Repo count badges
+        if (allRepos.length >= 50) {
+            badges.push({ type: "gold", label: "Gold Developer", icon: "🥇", description: "50+ repositories" });
+        } else if (allRepos.length >= 25) {
+            badges.push({ type: "silver", label: "Silver Developer", icon: "🥈", description: "25+ repositories" });
+        } else if (allRepos.length >= 10) {
+            badges.push({ type: "bronze", label: "Bronze Developer", icon: "🥉", description: "10+ repositories" });
+        }
+        // Special badges
+        if (totalStars >= 50) {
+            badges.push({ type: "star", label: "Star Collector", icon: "⭐", description: `${totalStars} total stars` });
+        } else if (totalStars >= 10) {
+            badges.push({ type: "rising-star", label: "Rising Star", icon: "✨", description: `${totalStars} total stars` });
+        }
+        if (totalForks >= 100) {
+            badges.push({ type: "contributor", label: "Open Source Hero", icon: "🔥", description: `${totalForks} total forks` });
+        } else if (totalForks >= 20) {
+            badges.push({ type: "contributor", label: "Contributor", icon: "🔥", description: `${totalForks} total forks` });
+        }
+        if (topLanguages.length >= 8) {
+            badges.push({ type: "polyglot", label: "Polyglot", icon: "🌍", description: `${topLanguages.length} languages` });
+        } else if (topLanguages.length >= 4) {
+            badges.push({ type: "multilingual", label: "Multilingual", icon: "🗣️", description: `${topLanguages.length} languages` });
+        }
+        if (profile.followers >= 50) {
+            badges.push({ type: "influencer", label: "Influencer", icon: "👥", description: `${profile.followers} followers` });
+        }
+        // Activity badge based on recent activity
+        const recentRepos = allRepos.filter((r) => {
+            const updated = new Date(r.updated_at);
+            return Date.now() - updated < 30 * 24 * 60 * 60 * 1000; // 30 days
+        });
+        if (recentRepos.length >= 5) {
+            badges.push({ type: "active", label: "Highly Active", icon: "⚡", description: `${recentRepos.length} repos updated in 30 days` });
+        }
+
+        // Badge tier (highest)
+        const badgeTier = allRepos.length >= 50 ? "gold" : allRepos.length >= 25 ? "silver" : allRepos.length >= 10 ? "bronze" : "none";
+
         return NextResponse.json({
             profile: {
                 login: profile.login,
@@ -177,6 +218,8 @@ export async function GET(request, { params }) {
             repos: repoDetails,
             totalRepos: repoDetails.length,
             scorecard,
+            badges,
+            badgeTier,
         });
     } catch (error) {
         console.error("GitHub API error:", error);

@@ -74,21 +74,58 @@ export function findMatches(userId) {
                     (w) => w.toLowerCase() === s.toLowerCase()
                 )
             );
-            const matchScore =
-                theyTeachMe.length + iTeachThem.length > 0
-                    ? Math.round(
-                        ((theyTeachMe.length + iTeachThem.length) /
-                            (user.skillsWanted.length +
-                                candidate.skillsWanted.length || 1)) *
-                        100
-                    )
+
+            // --- Advanced Weighted Matching Algorithm ---
+
+            // 1. Skill Overlap Score (40% weight) — common skills / target skills
+            const targetSkillsCount = Math.max(user.skillsWanted.length, 1);
+            const skillOverlapScore = Math.min(100, (theyTeachMe.length / targetSkillsCount) * 100);
+
+            // 2. Mutual Benefit Score (30% weight) — both sides benefit
+            const totalWanted = Math.max(user.skillsWanted.length + candidate.skillsWanted.length, 1);
+            const mutualBenefitScore = Math.min(100,
+                ((theyTeachMe.length + iTeachThem.length) / totalWanted) * 100
+            );
+
+            // 3. GitHub Language Overlap (20% weight)
+            let githubLangScore = 0;
+            if (user.githubUsername && candidate.githubUsername) {
+                // Both have GitHub — bonus for shared tech ecosystem
+                const userSkillsLower = user.skillsKnown.map(s => s.toLowerCase());
+                const candidateSkillsLower = candidate.skillsKnown.map(s => s.toLowerCase());
+                const sharedSkills = userSkillsLower.filter(s => candidateSkillsLower.includes(s));
+                const allUniqueSkills = new Set([...userSkillsLower, ...candidateSkillsLower]);
+                githubLangScore = allUniqueSkills.size > 0
+                    ? Math.min(100, (sharedSkills.length / allUniqueSkills.size) * 150) // boosted by 1.5x
                     : 0;
+            }
+
+            // 4. Diversity Bonus (10% weight) — reward complementary skill sets
+            const userSkillSet = new Set(user.skillsKnown.map(s => s.toLowerCase()));
+            const candidateUniqueSkills = candidate.skillsKnown.filter(
+                s => !userSkillSet.has(s.toLowerCase())
+            );
+            const diversityScore = Math.min(100, candidateUniqueSkills.length * 15);
+
+            // Weighted final score
+            const matchScore = Math.round(
+                skillOverlapScore * 0.4 +
+                mutualBenefitScore * 0.3 +
+                githubLangScore * 0.2 +
+                diversityScore * 0.1
+            );
 
             return {
                 user: candidate,
                 theyTeachMe,
                 iTeachThem,
-                matchScore,
+                matchScore: Math.min(100, matchScore),
+                breakdown: {
+                    skillOverlap: Math.round(skillOverlapScore),
+                    mutualBenefit: Math.round(mutualBenefitScore),
+                    githubLangOverlap: Math.round(githubLangScore),
+                    diversity: Math.round(diversityScore),
+                },
             };
         })
         .filter((m) => m.matchScore > 0)
