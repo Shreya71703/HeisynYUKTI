@@ -12,6 +12,7 @@ import CourseComponents from "../courses"
 import InterviewQAComponents from "../interview"
 import ResumeComponents from "../resume"
 import LiveInterviewComponents from "../live-interview"
+import ResumeAnalyzerComponents from "../resume-analyzer"
 import MoralSupport from "../moral-support"
 
 // DATA
@@ -21,6 +22,7 @@ const data = {
     button_one_text: "Courses",
     button_five_text: "Resume",
     button_four_text: "Interview Q&A",
+    button_eight_text: "Resume Analyzer",
     button_six_text: "Live Interview",
     button_six_link: "https://interview-x-918130002834.us-west1.run.app",
     button_seven_text: "Moral Support",
@@ -45,6 +47,8 @@ export default function CareerNavigation() {
                 return <ResumeComponents />
             case "Interview Q&A":
                 return <InterviewQAComponents />
+            case "Resume Analyzer":
+                return <ResumeAnalyzerComponents />
             case "Moral Support":
                 return <MoralSupport />
             // case "Live Interview":
@@ -110,6 +114,19 @@ export default function CareerNavigation() {
                     ) : (
                         <DotButton onClick={() => setActiveLink("Interview Q&A")}>
                             {data.button_four_text}
+                        </DotButton>
+                    )
+
+                }
+                {
+
+                    activeLink === "Resume Analyzer" ? (
+                        <DotButtonDark onClick={() => setActiveLink("Resume Analyzer")}>
+                            {data.button_eight_text}
+                        </DotButtonDark>
+                    ) : (
+                        <DotButton onClick={() => setActiveLink("Resume Analyzer")}>
+                            {data.button_eight_text}
                         </DotButton>
                     )
 
