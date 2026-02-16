@@ -1,0 +1,246 @@
+{
+  "users": [
+    {
+      "id": "seed-1",
+      "name": "Sanskar Dubey",
+      "avatar": null,
+      "skillsKnown": [
+        "JavaScript",
+        "React",
+        "Node.js",
+        "Next.js",
+        "Python"
+      ],
+      "skillsWanted": [
+        "Machine Learning",
+        "DevOps",
+        "Docker"
+      ],
+      "githubUsername": "dubeysanskar",
+      "leetcodeUsername": "",
+      "targetCareer": "Full Stack Developer",
+      "resumeLink": "",
+      "projectLinks": [],
+      "studentId": "",
+      "collegeName": "",
+      "yearOfStudy": "",
+      "githubToken": "",
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "seed-2",
+      "name": "Shreya Shukla",
+      "avatar": null,
+      "skillsKnown": [
+        "Python",
+        "Machine Learning",
+        "Data Science",
+        "TensorFlow"
+      ],
+      "skillsWanted": [
+        "React",
+        "Next.js",
+        "UI Design"
+      ],
+      "githubUsername": "Shreya71703",
+      "leetcodeUsername": "",
+      "targetCareer": "Data Scientist",
+      "resumeLink": "",
+      "projectLinks": [],
+      "studentId": "",
+      "collegeName": "",
+      "yearOfStudy": "",
+      "githubToken": "",
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "seed-3",
+      "name": "Arjun Patel",
+      "avatar": null,
+      "skillsKnown": [
+        "Java",
+        "Spring Boot",
+        "SQL",
+        "Microservices",
+        "AWS"
+      ],
+      "skillsWanted": [
+        "React",
+        "TypeScript",
+        "GraphQL"
+      ],
+      "githubUsername": "",
+      "leetcodeUsername": "arjunp_dev",
+      "targetCareer": "Backend Developer",
+      "resumeLink": "",
+      "projectLinks": [],
+      "studentId": "2024CS045",
+      "collegeName": "IIT Delhi",
+      "yearOfStudy": "3rd Year",
+      "githubToken": "",
+      "createdAt": "2026-01-05T00:00:00.000Z"
+    },
+    {
+      "id": "seed-4",
+      "name": "Priya Sharma",
+      "avatar": null,
+      "skillsKnown": [
+        "Flutter",
+        "Dart",
+        "Firebase",
+        "UI Design",
+        "Figma"
+      ],
+      "skillsWanted": [
+        "Backend Development",
+        "Node.js",
+        "PostgreSQL"
+      ],
+      "githubUsername": "",
+      "leetcodeUsername": "",
+      "targetCareer": "Mobile App Developer",
+      "resumeLink": "",
+      "projectLinks": [],
+      "studentId": "2023IT012",
+      "collegeName": "NIT Trichy",
+      "yearOfStudy": "4th Year",
+      "githubToken": "",
+      "createdAt": "2026-01-10T00:00:00.000Z"
+    },
+    {
+      "id": "seed-5",
+      "name": "Rahul Verma",
+      "avatar": null,
+      "skillsKnown": [
+        "Docker",
+        "Kubernetes",
+        "CI/CD",
+        "Linux",
+        "Terraform"
+      ],
+      "skillsWanted": [
+        "Machine Learning",
+        "Python",
+        "Data Engineering"
+      ],
+      "githubUsername": "",
+      "leetcodeUsername": "rahul_devops",
+      "targetCareer": "DevOps Engineer",
+      "resumeLink": "",
+      "projectLinks": [],
+      "studentId": "2024EC089",
+      "collegeName": "BITS Pilani",
+      "yearOfStudy": "2nd Year",
+      "githubToken": "",
+      "createdAt": "2026-01-15T00:00:00.000Z"
+    },
+    {
+      "id": "seed-6",
+      "name": "Ananya Gupta",
+      "avatar": null,
+      "skillsKnown": [
+        "HTML",
+        "CSS",
+        "JavaScript",
+        "Tailwind CSS",
+        "React"
+      ],
+      "skillsWanted": [
+        "Backend",
+        "Node.js",
+        "MongoDB",
+        "System Design"
+      ],
+      "githubUsername": "",
+      "leetcodeUsername": "",
+      "targetCareer": "Frontend Developer",
+      "resumeLink": "",
+      "projectLinks": [],
+      "studentId": "2025CS034",
+      "collegeName": "VIT Vellore",
+      "yearOfStudy": "1st Year",
+      "githubToken": "",
+      "createdAt": "2026-01-20T00:00:00.000Z"
+    },
+    {
+      "id": "seed-7",
+      "name": "Vikram Singh",
+      "avatar": null,
+      "skillsKnown": [
+        "C++",
+        "DSA",
+        "Competitive Programming",
+        "Python",
+        "SQL"
+      ],
+      "skillsWanted": [
+        "Web Development",
+        "React",
+        "Cloud Computing"
+      ],
+      "githubUsername": "",
+      "leetcodeUsername": "vikram_cp",
+      "targetCareer": "Software Engineer",
+      "resumeLink": "",
+      "projectLinks": [],
+      "studentId": "2024CS078",
+      "collegeName": "IIIT Hyderabad",
+      "yearOfStudy": "3rd Year",
+      "githubToken": "",
+      "createdAt": "2026-01-25T00:00:00.000Z"
+    },
+    {
+      "id": "seed-8",
+      "name": "Neha Reddy",
+      "avatar": null,
+      "skillsKnown": [
+        "Marketing",
+        "SEO",
+        "Content Writing",
+        "Google Ads",
+        "Analytics"
+      ],
+      "skillsWanted": [
+        "Python",
+        "Data Analysis",
+        "Power BI"
+      ],
+      "githubUsername": "",
+      "leetcodeUsername": "",
+      "targetCareer": "Digital Marketing Specialist",
+      "resumeLink": "",
+      "projectLinks": [],
+      "studentId": "2024BM015",
+      "collegeName": "SP Jain",
+      "yearOfStudy": "2nd Year",
+      "githubToken": "",
+      "createdAt": "2026-02-01T00:00:00.000Z"
+    },
+    {
+      "id": "100",
+      "name": "New Hackathon User",
+      "avatar": null,
+      "skillsKnown": [
+        "React",
+        "Node.js"
+      ],
+      "skillsWanted": [
+        "Python",
+        "ML"
+      ],
+      "githubUsername": "",
+      "leetcodeUsername": "",
+      "targetCareer": "Full Stack Developer",
+      "resumeLink": "",
+      "projectLinks": [],
+      "studentId": "",
+      "collegeName": "",
+      "yearOfStudy": "",
+      "githubToken": "",
+      "createdAt": "2026-02-16T11:08:05.716Z"
+    }
+  ],
+  "messages": [],
+  "nextUserId": 101,
+  "nextMessageId": 1
+}
