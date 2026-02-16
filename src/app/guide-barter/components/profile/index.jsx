@@ -204,12 +204,18 @@ export default function ProfilePanel({ currentUser, onUserRegistered }) {
                 body: JSON.stringify(submitData),
             })
             const data = await res.json()
-            onUserRegistered(data.user)
+            if (data.user) {
+                onUserRegistered(data.user)
+                alert("✅ Profile saved! Head to Discover to see your profile and find matches.")
+            } else {
+                alert("Something went wrong saving your profile. Please try again.")
+            }
             if (form.githubUsername && !githubData) {
                 fetchGithubData(form.githubUsername, githubToken)
             }
         } catch (e) {
             console.error("Failed to save profile", e)
+            alert("❌ Failed to save profile. Please check your connection and try again.")
         }
         setSaving(false)
     }
@@ -554,8 +560,8 @@ export default function ProfilePanel({ currentUser, onUserRegistered }) {
                             <input
                                 type="text"
                                 className={`w-full px-4 py-2.5 rounded-lg border bg-neutral-50 font-sora text-sm outline-none transition-colors ${githubConnected
-                                        ? "border-emerald-200 text-emerald-700 bg-emerald-50"
-                                        : "border-neutral-200 text-neutral-700 focus:border-[#FF885B]"
+                                    ? "border-emerald-200 text-emerald-700 bg-emerald-50"
+                                    : "border-neutral-200 text-neutral-700 focus:border-[#FF885B]"
                                     }`}
                                 placeholder="e.g. octocat"
                                 value={form.githubUsername}

@@ -92,21 +92,24 @@ export default function DiscoverPanel({ currentUser }) {
         return computeMatches(currentUser, users)
     }, [currentUser, users])
 
-    // Fetch all users on mount
+    // Fetch all users on mount + auto-refresh every 5 sec for new profiles
     useEffect(() => {
         let cancelled = false
         const load = async () => {
             setLoading(true)
-            await new Promise((r) => setTimeout(r, 200))
             const data = await fetchUsers()
             if (!cancelled && data.length === 0) {
-                await new Promise((r) => setTimeout(r, 500))
+                await new Promise((r) => setTimeout(r, 300))
                 await fetchUsers()
             }
             setLoading(false)
         }
         load()
-        return () => { cancelled = true }
+        // Auto-refresh users so new profiles show up
+        const interval = setInterval(() => {
+            if (!cancelled) fetchUsers()
+        }, 5000)
+        return () => { cancelled = true; clearInterval(interval) }
     }, [])
 
     // Batch-fetch GitHub data
@@ -295,8 +298,8 @@ export default function DiscoverPanel({ currentUser }) {
                     <button
                         onClick={() => { setMode("all"); setLoading(true); fetchUsers(searchQuery).then(() => setLoading(false)) }}
                         className={`px-4 py-2 rounded-full text-xs font-sora font-medium transition-all ${mode === "all"
-                                ? "bg-neutral-900 text-white shadow-sm"
-                                : "bg-white text-neutral-600 border border-neutral-200 hover:border-neutral-400"
+                            ? "bg-neutral-900 text-white shadow-sm"
+                            : "bg-white text-neutral-600 border border-neutral-200 hover:border-neutral-400"
                             }`}
                     >
                         <FiUsers className="inline mr-1.5 size-3.5" />
@@ -306,8 +309,8 @@ export default function DiscoverPanel({ currentUser }) {
                         <button
                             onClick={() => setMode("matches")}
                             className={`px-4 py-2 rounded-full text-xs font-sora font-medium transition-all ${mode === "matches"
-                                    ? "bg-[#FF885B] text-white shadow-sm"
-                                    : "bg-white text-neutral-600 border border-neutral-200 hover:border-[#FF885B]"
+                                ? "bg-[#FF885B] text-white shadow-sm"
+                                : "bg-white text-neutral-600 border border-neutral-200 hover:border-[#FF885B]"
                                 }`}
                         >
                             🤝 My Matches ({matches.length})
