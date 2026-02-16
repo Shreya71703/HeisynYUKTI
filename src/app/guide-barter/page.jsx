@@ -17,7 +17,7 @@ export default function GuideBarterPage() {
     const [synced, setSynced] = useState(false)
     const [messageCount, setMessageCount] = useState(0)
 
-    // Load current user from localStorage AND sync to the server store
+    // Load current user from localStorage AND always sync to server
     useEffect(() => {
         const saved = localStorage.getItem("guideBarterUser")
         if (saved) {
@@ -34,7 +34,7 @@ export default function GuideBarterPage() {
         }
     }, [])
 
-    // Fetch message count when user is available
+    // Fetch message count
     useEffect(() => {
         if (!currentUser?.id) return
         const fetchCount = async () => {
@@ -45,31 +45,23 @@ export default function GuideBarterPage() {
             } catch (e) { /* ignore */ }
         }
         fetchCount()
-        // Refresh count every 10 seconds
         const interval = setInterval(fetchCount, 10000)
         return () => clearInterval(interval)
     }, [currentUser])
 
+    // Always sync — the server addUser will merge if exists, create if not
     const syncUserToServer = async (user) => {
         try {
-            const checkRes = await fetch("/api/guide-barter/users")
-            const checkData = await checkRes.json()
-            const existingUsers = checkData.users || []
-            const alreadyExists = existingUsers.some(
-                (u) => u.id === user.id || (u.name && user.name && u.name.toLowerCase() === u.name.toLowerCase())
-            )
-
-            if (!alreadyExists) {
-                const res = await fetch("/api/guide-barter/users", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(user),
-                })
-                const data = await res.json()
-                if (data.user) {
-                    setCurrentUser(data.user)
-                    localStorage.setItem("guideBarterUser", JSON.stringify(data.user))
-                }
+            const res = await fetch("/api/guide-barter/users", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(user),
+            })
+            const data = await res.json()
+            if (data.user) {
+                // Always update local with server's canonical version
+                setCurrentUser(data.user)
+                localStorage.setItem("guideBarterUser", JSON.stringify(data.user))
             }
         } catch (e) {
             console.error("Failed to sync user to server", e)

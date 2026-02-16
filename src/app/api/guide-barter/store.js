@@ -1,12 +1,12 @@
 // Persistent data store for Guide Barter System
-// Stores data in a JSON file so it survives server restarts
+// Uses JSON file so data survives server restarts and module re-imports
 
 import fs from "fs";
 import path from "path";
 
 const DATA_FILE = path.join(process.cwd(), "guide-barter-data.json");
 
-// Default seed profiles — always available
+// Default seed profiles
 const SEED_PROFILES = [
     {
         id: "seed-1",
@@ -27,7 +27,7 @@ const SEED_PROFILES = [
     },
     {
         id: "seed-2",
-        name: "Shreya Mishra",
+        name: "Shreya Shukla",
         avatar: null,
         skillsKnown: ["Python", "Machine Learning", "Data Science", "TensorFlow"],
         skillsWanted: ["React", "Next.js", "UI Design"],
@@ -146,73 +146,98 @@ const SEED_PROFILES = [
     },
 ];
 
-// Load data from file, or initialize with seeds
+// ALWAYS read fresh from disk to avoid stale in-memory state across hot reloads
 function loadStore() {
     try {
         if (fs.existsSync(DATA_FILE)) {
             const raw = fs.readFileSync(DATA_FILE, "utf-8");
             const data = JSON.parse(raw);
-            // Merge seed profiles if missing
-            const existingIds = new Set(data.users.map((u) => u.id));
+            // Ensure seed profiles are present
+            const existingNames = new Set(data.users.map((u) => u.name?.toLowerCase()));
             for (const seed of SEED_PROFILES) {
-                if (!existingIds.has(seed.id)) {
-                    data.users.push(seed);
+                if (!existingNames.has(seed.name.toLowerCase())) {
+                    data.users.push({ ...seed });
                 }
             }
+            // Ensure required fields
+            if (!data.nextUserId) data.nextUserId = 100;
+            if (!data.nextMessageId) data.nextMessageId = 1;
+            if (!data.messages) data.messages = [];
             return data;
         }
     } catch (e) {
-        console.error("Failed to load store from file, using defaults", e);
+        console.error("Failed to load store:", e);
     }
-    // Default store with seeds
     return {
-        users: [...SEED_PROFILES],
+        users: SEED_PROFILES.map((s) => ({ ...s })),
         messages: [],
         nextUserId: 100,
         nextMessageId: 1,
     };
 }
 
-function saveStore() {
+function saveStore(data) {
     try {
-        fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2), "utf-8");
+        fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
     } catch (e) {
-        console.error("Failed to save store to file", e);
+        console.error("Failed to save store:", e);
     }
 }
 
-const store = loadStore();
+// Every function reads from disk and writes back — no stale cache
+export function getUsers(skillFilter) {
+    const store = loadStore();
+    let users = store.users;
+    if (skillFilter) {
+        const skill = skillFilter.toLowerCase();
+        users = users.filter((u) =>
+            (u.skillsKnown || []).some((s) => s.toLowerCase().includes(skill))
+        );
+    }
+    return users;
+}
 
-export function getStore() {
-    return store;
+export function getUserById(id) {
+    const store = loadStore();
+    return store.users.find((u) => u.id === id) || null;
 }
 
 export function addUser(userData) {
-    // Check if user with same name already exists (prevent duplicates from sync)
-    const existing = store.users.find(
-        (u) => u.name && userData.name && u.name.toLowerCase() === userData.name.toLowerCase()
-    );
+    const store = loadStore();
+
+    // Check for existing user by ID first, then by name
+    let existing = null;
+    if (userData.id) {
+        existing = store.users.find((u) => u.id === userData.id);
+    }
+    if (!existing && userData.name) {
+        existing = store.users.find(
+            (u) => u.name && u.name.toLowerCase() === userData.name.toLowerCase()
+        );
+    }
+
     if (existing) {
-        // Update existing instead of creating duplicate
-        Object.assign(existing, {
-            skillsKnown: userData.skillsKnown || existing.skillsKnown,
-            skillsWanted: userData.skillsWanted || existing.skillsWanted,
-            githubUsername: userData.githubUsername || existing.githubUsername,
-            leetcodeUsername: userData.leetcodeUsername || existing.leetcodeUsername,
-            targetCareer: userData.targetCareer || existing.targetCareer,
-            resumeLink: userData.resumeLink || existing.resumeLink,
-            projectLinks: userData.projectLinks?.length > 0 ? userData.projectLinks : existing.projectLinks,
-            studentId: userData.studentId || existing.studentId,
-            collegeName: userData.collegeName || existing.collegeName,
-            yearOfStudy: userData.yearOfStudy || existing.yearOfStudy,
-            githubToken: userData.githubToken || existing.githubToken,
-        });
-        saveStore();
+        // Merge/update the existing user
+        if (userData.name) existing.name = userData.name;
+        if (userData.skillsKnown?.length) existing.skillsKnown = userData.skillsKnown;
+        if (userData.skillsWanted?.length) existing.skillsWanted = userData.skillsWanted;
+        if (userData.githubUsername) existing.githubUsername = userData.githubUsername;
+        if (userData.leetcodeUsername) existing.leetcodeUsername = userData.leetcodeUsername;
+        if (userData.targetCareer) existing.targetCareer = userData.targetCareer;
+        if (userData.resumeLink) existing.resumeLink = userData.resumeLink;
+        if (userData.projectLinks?.length) existing.projectLinks = userData.projectLinks;
+        if (userData.studentId) existing.studentId = userData.studentId;
+        if (userData.collegeName) existing.collegeName = userData.collegeName;
+        if (userData.yearOfStudy) existing.yearOfStudy = userData.yearOfStudy;
+        if (userData.githubToken) existing.githubToken = userData.githubToken;
+        if (userData.avatar) existing.avatar = userData.avatar;
+        saveStore(store);
         return existing;
     }
 
+    // New user
     const user = {
-        id: String(store.nextUserId++),
+        id: userData.id || String(store.nextUserId++),
         name: userData.name || "Anonymous",
         avatar: userData.avatar || null,
         skillsKnown: userData.skillsKnown || [],
@@ -229,63 +254,55 @@ export function addUser(userData) {
         createdAt: new Date().toISOString(),
     };
     store.users.push(user);
-    saveStore();
+    saveStore(store);
     return user;
 }
 
 export function updateUser(id, userData) {
+    const store = loadStore();
     const index = store.users.findIndex((u) => u.id === id);
-    if (index === -1) return null;
-    store.users[index] = { ...store.users[index], ...userData };
-    saveStore();
+    if (index === -1) {
+        // User not found by ID — try adding them (keeps the ID)
+        return addUser({ id, ...userData });
+    }
+    store.users[index] = { ...store.users[index], ...userData, id };
+    saveStore(store);
     return store.users[index];
 }
 
-export function getUsers(skillFilter) {
-    if (skillFilter) {
-        const skill = skillFilter.toLowerCase();
-        return store.users.filter((u) =>
-            u.skillsKnown.some((s) => s.toLowerCase().includes(skill))
-        );
-    }
-    return store.users;
-}
-
-export function getUserById(id) {
-    return store.users.find((u) => u.id === id) || null;
-}
-
 export function findMatches(userId) {
-    const user = getUserById(userId);
+    const store = loadStore();
+    const user = store.users.find((u) => u.id === userId);
     if (!user) return [];
 
     return store.users
         .filter((u) => u.id !== userId)
         .map((candidate) => {
-            const theyTeachMe = candidate.skillsKnown.filter((s) =>
-                user.skillsWanted.some(
+            const theyTeachMe = (candidate.skillsKnown || []).filter((s) =>
+                (user.skillsWanted || []).some(
                     (w) => w.toLowerCase() === s.toLowerCase()
                 )
             );
-            const iTeachThem = user.skillsKnown.filter((s) =>
-                candidate.skillsWanted.some(
+            const iTeachThem = (user.skillsKnown || []).filter((s) =>
+                (candidate.skillsWanted || []).some(
                     (w) => w.toLowerCase() === s.toLowerCase()
                 )
             );
 
-            // Weighted Matching Algorithm
-            const targetSkillsCount = Math.max(user.skillsWanted.length, 1);
+            const targetSkillsCount = Math.max((user.skillsWanted || []).length, 1);
             const skillOverlapScore = Math.min(100, (theyTeachMe.length / targetSkillsCount) * 100);
 
-            const totalWanted = Math.max(user.skillsWanted.length + candidate.skillsWanted.length, 1);
+            const totalWanted = Math.max(
+                (user.skillsWanted || []).length + (candidate.skillsWanted || []).length, 1
+            );
             const mutualBenefitScore = Math.min(100,
                 ((theyTeachMe.length + iTeachThem.length) / totalWanted) * 100
             );
 
             let githubLangScore = 0;
             if (user.githubUsername && candidate.githubUsername) {
-                const userSkillsLower = user.skillsKnown.map(s => s.toLowerCase());
-                const candidateSkillsLower = candidate.skillsKnown.map(s => s.toLowerCase());
+                const userSkillsLower = (user.skillsKnown || []).map(s => s.toLowerCase());
+                const candidateSkillsLower = (candidate.skillsKnown || []).map(s => s.toLowerCase());
                 const sharedSkills = userSkillsLower.filter(s => candidateSkillsLower.includes(s));
                 const allUniqueSkills = new Set([...userSkillsLower, ...candidateSkillsLower]);
                 githubLangScore = allUniqueSkills.size > 0
@@ -293,8 +310,8 @@ export function findMatches(userId) {
                     : 0;
             }
 
-            const userSkillSet = new Set(user.skillsKnown.map(s => s.toLowerCase()));
-            const candidateUniqueSkills = candidate.skillsKnown.filter(
+            const userSkillSet = new Set((user.skillsKnown || []).map(s => s.toLowerCase()));
+            const candidateUniqueSkills = (candidate.skillsKnown || []).filter(
                 s => !userSkillSet.has(s.toLowerCase())
             );
             const diversityScore = Math.min(100, candidateUniqueSkills.length * 15);
@@ -324,6 +341,7 @@ export function findMatches(userId) {
 }
 
 export function addMessage(fromId, toId, content, type = "text") {
+    const store = loadStore();
     const msg = {
         id: String(store.nextMessageId++),
         fromId,
@@ -333,11 +351,12 @@ export function addMessage(fromId, toId, content, type = "text") {
         timestamp: new Date().toISOString(),
     };
     store.messages.push(msg);
-    saveStore();
+    saveStore(store);
     return msg;
 }
 
 export function getMessages(userId1, userId2) {
+    const store = loadStore();
     return store.messages
         .filter(
             (m) =>
@@ -348,6 +367,7 @@ export function getMessages(userId1, userId2) {
 }
 
 export function getConversations(userId) {
+    const store = loadStore();
     const seen = new Set();
     const conversations = [];
 
@@ -358,7 +378,7 @@ export function getConversations(userId) {
             const otherId = m.fromId === userId ? m.toId : m.fromId;
             if (!seen.has(otherId)) {
                 seen.add(otherId);
-                const otherUser = getUserById(otherId);
+                const otherUser = store.users.find((u) => u.id === otherId);
                 conversations.push({
                     userId: otherId,
                     userName: otherUser?.name || "Unknown",

@@ -10,19 +10,14 @@ export async function GET(request) {
 
 export async function POST(request) {
     const body = await request.json();
-    const { id, ...data } = body;
 
-    if (id) {
-        const updated = updateUser(id, data);
-        if (!updated) {
-            return NextResponse.json(
-                { error: "User not found" },
-                { status: 404 }
-            );
-        }
+    // If user has an ID, try update first — if not found, addUser handles it
+    if (body.id) {
+        const updated = updateUser(body.id, body);
         return NextResponse.json({ user: updated });
     }
 
-    const user = addUser(data);
+    // New user without ID
+    const user = addUser(body);
     return NextResponse.json({ user }, { status: 201 });
 }
