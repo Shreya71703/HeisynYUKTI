@@ -14,18 +14,54 @@ const tabs = ["Discover", "My Profile", "Messages"]
 export default function GuideBarterPage() {
     const [activeTab, setActiveTab] = useState("Discover")
     const [currentUser, setCurrentUser] = useState(null)
+    const [synced, setSynced] = useState(false)
 
-    // Load current user from localStorage
+    // Load current user from localStorage AND sync to the server store
     useEffect(() => {
         const saved = localStorage.getItem("guideBarterUser")
         if (saved) {
             try {
-                setCurrentUser(JSON.parse(saved))
+                const user = JSON.parse(saved)
+                setCurrentUser(user)
+                // Re-register or update user on the server so they appear in Discover
+                syncUserToServer(user)
             } catch (e) {
                 console.error("Failed to parse saved user", e)
+                setSynced(true)
             }
+        } else {
+            setSynced(true)
         }
     }, [])
+
+    // Sync the localStorage user to the server store
+    const syncUserToServer = async (user) => {
+        try {
+            // First check if user already exists on server
+            const checkRes = await fetch("/api/guide-barter/users")
+            const checkData = await checkRes.json()
+            const existingUsers = checkData.users || []
+            const alreadyExists = existingUsers.some((u) => u.id === user.id)
+
+            if (!alreadyExists) {
+                // Re-register this user on the server
+                const res = await fetch("/api/guide-barter/users", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(user),
+                })
+                const data = await res.json()
+                if (data.user) {
+                    // Update with server-assigned ID (may differ from old one)
+                    setCurrentUser(data.user)
+                    localStorage.setItem("guideBarterUser", JSON.stringify(data.user))
+                }
+            }
+        } catch (e) {
+            console.error("Failed to sync user to server", e)
+        }
+        setSynced(true)
+    }
 
     const handleUserRegistered = useCallback((user) => {
         setCurrentUser(user)
