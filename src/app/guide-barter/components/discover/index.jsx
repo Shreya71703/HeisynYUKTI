@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { FiSearch, FiUsers, FiAlertCircle, FiFilter } from "react-icons/fi"
 import UserCard from "../user-card"
 import { skillSuggestions } from "../../data"
@@ -8,28 +8,99 @@ import { skillSuggestions } from "../../data"
 // Simple in-memory cache for GitHub data
 const githubCache = {}
 
+// Client-side match computation — works regardless of server state
+function computeMatches(currentUser, users) {
+    if (!currentUser?.skillsKnown?.length && !currentUser?.skillsWanted?.length) return []
+
+    return users
+        .filter((u) => u.id !== currentUser.id && u.name?.toLowerCase() !== currentUser.name?.toLowerCase())
+        .map((candidate) => {
+            const theyTeachMe = (candidate.skillsKnown || []).filter((s) =>
+                (currentUser.skillsWanted || []).some(
+                    (w) => w.toLowerCase() === s.toLowerCase()
+                )
+            )
+            const iTeachThem = (currentUser.skillsKnown || []).filter((s) =>
+                (candidate.skillsWanted || []).some(
+                    (w) => w.toLowerCase() === s.toLowerCase()
+                )
+            )
+
+            const targetSkillsCount = Math.max((currentUser.skillsWanted || []).length, 1)
+            const skillOverlapScore = Math.min(100, (theyTeachMe.length / targetSkillsCount) * 100)
+
+            const totalWanted = Math.max(
+                (currentUser.skillsWanted || []).length + (candidate.skillsWanted || []).length, 1
+            )
+            const mutualBenefitScore = Math.min(100,
+                ((theyTeachMe.length + iTeachThem.length) / totalWanted) * 100
+            )
+
+            let githubLangScore = 0
+            if (currentUser.githubUsername && candidate.githubUsername) {
+                const userSkillsLower = (currentUser.skillsKnown || []).map(s => s.toLowerCase())
+                const candidateSkillsLower = (candidate.skillsKnown || []).map(s => s.toLowerCase())
+                const sharedSkills = userSkillsLower.filter(s => candidateSkillsLower.includes(s))
+                const allUniqueSkills = new Set([...userSkillsLower, ...candidateSkillsLower])
+                githubLangScore = allUniqueSkills.size > 0
+                    ? Math.min(100, (sharedSkills.length / allUniqueSkills.size) * 150)
+                    : 0
+            }
+
+            const userSkillSet = new Set((currentUser.skillsKnown || []).map(s => s.toLowerCase()))
+            const candidateUniqueSkills = (candidate.skillsKnown || []).filter(
+                s => !userSkillSet.has(s.toLowerCase())
+            )
+            const diversityScore = Math.min(100, candidateUniqueSkills.length * 15)
+
+            const matchScore = Math.round(
+                skillOverlapScore * 0.4 +
+                mutualBenefitScore * 0.3 +
+                githubLangScore * 0.2 +
+                diversityScore * 0.1
+            )
+
+            return {
+                user: candidate,
+                theyTeachMe,
+                iTeachThem,
+                matchScore: Math.min(100, matchScore),
+                breakdown: {
+                    skillOverlap: Math.round(skillOverlapScore),
+                    mutualBenefit: Math.round(mutualBenefitScore),
+                    githubLangOverlap: Math.round(githubLangScore),
+                    diversity: Math.round(diversityScore),
+                },
+            }
+        })
+        .filter((m) => m.matchScore > 0)
+        .sort((a, b) => b.matchScore - a.matchScore)
+}
+
 export default function DiscoverPanel({ currentUser }) {
     const [searchQuery, setSearchQuery] = useState("")
     const [users, setUsers] = useState([])
-    const [matches, setMatches] = useState([])
     const [loading, setLoading] = useState(true)
     const [showSuggestions, setShowSuggestions] = useState(false)
     const [mode, setMode] = useState("all")
     const [sortBy, setSortBy] = useState("default")
     const [githubDataMap, setGithubDataMap] = useState({})
-    const fetchedRef = useRef(false)
 
-    // Fetch all users on mount (with retry to catch sync)
+    // Compute matches client-side so they're always available instantly
+    const matches = useMemo(() => {
+        if (!currentUser) return []
+        return computeMatches(currentUser, users)
+    }, [currentUser, users])
+
+    // Fetch all users on mount
     useEffect(() => {
         let cancelled = false
         const load = async () => {
             setLoading(true)
-            // Small delay to allow page-level sync to complete
-            await new Promise((r) => setTimeout(r, 300))
+            await new Promise((r) => setTimeout(r, 200))
             const data = await fetchUsers()
             if (!cancelled && data.length === 0) {
-                // Retry once more after a bit (server may be still syncing)
-                await new Promise((r) => setTimeout(r, 700))
+                await new Promise((r) => setTimeout(r, 500))
                 await fetchUsers()
             }
             setLoading(false)
@@ -38,19 +109,11 @@ export default function DiscoverPanel({ currentUser }) {
         return () => { cancelled = true }
     }, [])
 
-    // Fetch matches when user is available
-    useEffect(() => {
-        if (currentUser?.id) {
-            fetchMatches()
-        }
-    }, [currentUser])
-
-    // Batch-fetch GitHub data for all users with GitHub usernames
+    // Batch-fetch GitHub data
     useEffect(() => {
         if (users.length === 0) return
         const ghUsers = users.filter((u) => u.githubUsername && !githubCache[u.githubUsername])
         if (ghUsers.length === 0) {
-            // All in cache already
             const map = {}
             users.forEach((u) => {
                 if (u.githubUsername && githubCache[u.githubUsername]) {
@@ -60,7 +123,6 @@ export default function DiscoverPanel({ currentUser }) {
             setGithubDataMap((prev) => ({ ...prev, ...map }))
             return
         }
-        // Fetch in parallel
         Promise.allSettled(
             ghUsers.map((u) =>
                 fetch(`/api/guide-barter/github/${u.githubUsername}`)
@@ -101,19 +163,6 @@ export default function DiscoverPanel({ currentUser }) {
         }
     }
 
-    const fetchMatches = async () => {
-        if (!currentUser?.id) return
-        try {
-            const res = await fetch(
-                `/api/guide-barter/matches?userId=${currentUser.id}`
-            )
-            const data = await res.json()
-            setMatches(data.matches || [])
-        } catch (e) {
-            console.error("Failed to fetch matches", e)
-        }
-    }
-
     const handleSearch = (e) => {
         e.preventDefault()
         setLoading(true)
@@ -149,7 +198,7 @@ export default function DiscoverPanel({ currentUser }) {
         ).slice(0, 8)
         : []
 
-    // Build display list
+    // Build display list with match data
     let displayList = []
     if (mode === "matches") {
         displayList = matches.map((m) => ({ ...m.user, _matchData: m }))
@@ -170,7 +219,7 @@ export default function DiscoverPanel({ currentUser }) {
 
     return (
         <div className="space-y-6">
-            {/* Hero Search Section */}
+            {/* Hero Search */}
             <div className="bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 rounded-2xl p-6 md:p-8">
                 <h2 className="font-syne font-bold text-white text-xl md:text-2xl mb-1">
                     Discover Skill Partners
