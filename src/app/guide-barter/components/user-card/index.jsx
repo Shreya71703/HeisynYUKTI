@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from "react"
-import { FiGithub, FiStar, FiGitBranch, FiBook, FiExternalLink, FiAward } from "react-icons/fi"
+import { useState } from "react"
+import { FiGithub, FiStar, FiGitBranch, FiBook, FiExternalLink } from "react-icons/fi"
 
 const tierColors = {
     gold: "from-yellow-400 to-amber-500",
@@ -17,21 +17,30 @@ const tierBorderColors = {
     none: "border-neutral-200",
 }
 
-export default function UserCard({ user, matchData, onSendCollab, currentUserId }) {
-    const isOwnCard = user.id === currentUserId
-    const [githubData, setGithubData] = useState(null)
-    const [loadingGh, setLoadingGh] = useState(false)
+// Custom tooltip component for badges
+function BadgeTooltip({ badge, children }) {
+    const [show, setShow] = useState(false)
 
-    useEffect(() => {
-        if (user.githubUsername) {
-            setLoadingGh(true)
-            fetch(`/api/guide-barter/github/${user.githubUsername}`)
-                .then((r) => r.ok ? r.json() : null)
-                .then((data) => { if (data) setGithubData(data) })
-                .catch(() => { })
-                .finally(() => setLoadingGh(false))
-        }
-    }, [user.githubUsername])
+    return (
+        <span
+            className="relative inline-flex"
+            onMouseEnter={() => setShow(true)}
+            onMouseLeave={() => setShow(false)}
+        >
+            {children}
+            {show && (
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-neutral-900 text-white text-[10px] font-sora rounded-lg shadow-xl whitespace-nowrap z-50 pointer-events-none">
+                    <span className="block font-semibold text-[11px] mb-0.5">{badge.icon} {badge.label}</span>
+                    <span className="block text-neutral-300">{badge.description}</span>
+                    <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-neutral-900" />
+                </span>
+            )}
+        </span>
+    )
+}
+
+export default function UserCard({ user, matchData, onSendCollab, currentUserId, githubData }) {
+    const isOwnCard = user.id === currentUserId
 
     const badges = githubData?.badges || []
     const badgeTier = githubData?.badgeTier || "none"
@@ -92,24 +101,24 @@ export default function UserCard({ user, matchData, onSendCollab, currentUserId 
                     )}
                 </div>
 
-                {/* GitHub Badges */}
+                {/* GitHub Badges with rich tooltips */}
                 {badges.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
                         {badges.map((badge, i) => (
-                            <span
-                                key={i}
-                                title={badge.description}
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-sora font-semibold ${badge.type === "gold" ? "bg-yellow-50 text-yellow-700" :
-                                        badge.type === "silver" ? "bg-neutral-100 text-neutral-600" :
-                                            badge.type === "bronze" ? "bg-amber-50 text-amber-700" :
-                                                badge.type === "star" || badge.type === "rising-star" ? "bg-purple-50 text-purple-600" :
-                                                    badge.type === "contributor" ? "bg-red-50 text-red-600" :
-                                                        badge.type === "active" ? "bg-blue-50 text-blue-600" :
-                                                            "bg-neutral-50 text-neutral-500"
-                                    }`}
-                            >
-                                {badge.icon} {badge.label}
-                            </span>
+                            <BadgeTooltip key={i} badge={badge}>
+                                <span
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-sora font-semibold cursor-help ${badge.type === "gold" ? "bg-yellow-50 text-yellow-700" :
+                                            badge.type === "silver" ? "bg-neutral-100 text-neutral-600" :
+                                                badge.type === "bronze" ? "bg-amber-50 text-amber-700" :
+                                                    badge.type === "star" || badge.type === "rising-star" ? "bg-purple-50 text-purple-600" :
+                                                        badge.type === "contributor" ? "bg-red-50 text-red-600" :
+                                                            badge.type === "active" ? "bg-blue-50 text-blue-600" :
+                                                                "bg-neutral-50 text-neutral-500"
+                                        }`}
+                                >
+                                    {badge.icon} {badge.label}
+                                </span>
+                            </BadgeTooltip>
                         ))}
                     </div>
                 )}
@@ -172,7 +181,7 @@ export default function UserCard({ user, matchData, onSendCollab, currentUserId 
                     </div>
                 </div>
 
-                {/* Match Details - Score Breakdown */}
+                {/* Match Details */}
                 {matchData && (
                     <div className="border-t border-neutral-100 pt-3 space-y-2">
                         {matchData.theyTeachMe?.length > 0 && (
@@ -189,7 +198,7 @@ export default function UserCard({ user, matchData, onSendCollab, currentUserId 
                         )}
                         {matchData.breakdown && (
                             <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-[10px] font-sora text-neutral-400">Score Breakdown:</span>
+                                <span className="text-[10px] font-sora text-neutral-400">Score:</span>
                                 <span className="px-1.5 py-0.5 rounded text-[9px] font-sora bg-emerald-50 text-emerald-600">
                                     Skill {matchData.breakdown.skillOverlap}%
                                 </span>

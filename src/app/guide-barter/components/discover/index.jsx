@@ -1,44 +1,104 @@
 'use client'
 
-import { useState, useEffect } from "react"
-import { FiSearch, FiUsers, FiAlertCircle, FiFilter, FiTrendingUp } from "react-icons/fi"
+import { useState, useEffect, useRef } from "react"
+import { FiSearch, FiUsers, FiAlertCircle, FiFilter } from "react-icons/fi"
 import UserCard from "../user-card"
 import { skillSuggestions } from "../../data"
+
+// Simple in-memory cache for GitHub data
+const githubCache = {}
 
 export default function DiscoverPanel({ currentUser }) {
     const [searchQuery, setSearchQuery] = useState("")
     const [users, setUsers] = useState([])
     const [matches, setMatches] = useState([])
-    const [loading, setLoading] = useState(false)
+    const [loading, setLoading] = useState(true)
     const [showSuggestions, setShowSuggestions] = useState(false)
-    const [mode, setMode] = useState("all") // "all" | "matches"
-    const [sortBy, setSortBy] = useState("default") // "default" | "match" | "name"
+    const [mode, setMode] = useState("all")
+    const [sortBy, setSortBy] = useState("default")
+    const [githubDataMap, setGithubDataMap] = useState({})
+    const fetchedRef = useRef(false)
 
-    // Fetch all users
+    // Fetch all users on mount (with retry to catch sync)
     useEffect(() => {
-        fetchUsers()
+        let cancelled = false
+        const load = async () => {
+            setLoading(true)
+            // Small delay to allow page-level sync to complete
+            await new Promise((r) => setTimeout(r, 300))
+            const data = await fetchUsers()
+            if (!cancelled && data.length === 0) {
+                // Retry once more after a bit (server may be still syncing)
+                await new Promise((r) => setTimeout(r, 700))
+                await fetchUsers()
+            }
+            setLoading(false)
+        }
+        load()
+        return () => { cancelled = true }
     }, [])
 
-    // Fetch matches if user is registered
+    // Fetch matches when user is available
     useEffect(() => {
         if (currentUser?.id) {
             fetchMatches()
         }
     }, [currentUser])
 
+    // Batch-fetch GitHub data for all users with GitHub usernames
+    useEffect(() => {
+        if (users.length === 0) return
+        const ghUsers = users.filter((u) => u.githubUsername && !githubCache[u.githubUsername])
+        if (ghUsers.length === 0) {
+            // All in cache already
+            const map = {}
+            users.forEach((u) => {
+                if (u.githubUsername && githubCache[u.githubUsername]) {
+                    map[u.githubUsername] = githubCache[u.githubUsername]
+                }
+            })
+            setGithubDataMap((prev) => ({ ...prev, ...map }))
+            return
+        }
+        // Fetch in parallel
+        Promise.allSettled(
+            ghUsers.map((u) =>
+                fetch(`/api/guide-barter/github/${u.githubUsername}`)
+                    .then((r) => r.ok ? r.json() : null)
+                    .then((data) => {
+                        if (data) {
+                            githubCache[u.githubUsername] = data
+                            return { username: u.githubUsername, data }
+                        }
+                        return null
+                    })
+                    .catch(() => null)
+            )
+        ).then((results) => {
+            const map = {}
+            results.forEach((r) => {
+                if (r.status === "fulfilled" && r.value) {
+                    map[r.value.username] = r.value.data
+                }
+            })
+            setGithubDataMap((prev) => ({ ...prev, ...map }))
+        })
+    }, [users])
+
     const fetchUsers = async (skill = "") => {
-        setLoading(true)
         try {
             const url = skill
                 ? `/api/guide-barter/users?skill=${encodeURIComponent(skill)}`
                 : "/api/guide-barter/users"
             const res = await fetch(url)
             const data = await res.json()
-            setUsers(data.users || [])
+            const fetched = data.users || []
+            setUsers(fetched)
+            return fetched
         } catch (e) {
             console.error("Failed to fetch users", e)
+            return []
         }
-        setLoading(false)
     }
 
     const fetchMatches = async () => {
@@ -56,7 +116,8 @@ export default function DiscoverPanel({ currentUser }) {
 
     const handleSearch = (e) => {
         e.preventDefault()
-        fetchUsers(searchQuery)
+        setLoading(true)
+        fetchUsers(searchQuery).then(() => setLoading(false))
         setShowSuggestions(false)
     }
 
@@ -88,7 +149,7 @@ export default function DiscoverPanel({ currentUser }) {
         ).slice(0, 8)
         : []
 
-    // Build display list with match data attached
+    // Build display list
     let displayList = []
     if (mode === "matches") {
         displayList = matches.map((m) => ({ ...m.user, _matchData: m }))
@@ -99,7 +160,6 @@ export default function DiscoverPanel({ currentUser }) {
         })
     }
 
-    // Sort
     if (sortBy === "match") {
         displayList.sort((a, b) => (b._matchData?.matchScore || 0) - (a._matchData?.matchScore || 0))
     } else if (sortBy === "name") {
@@ -119,7 +179,6 @@ export default function DiscoverPanel({ currentUser }) {
                     Find people who know what you want to learn — and want to learn what you know.
                 </p>
 
-                {/* Search Bar */}
                 <form onSubmit={handleSearch} className="relative">
                     <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 px-5 py-3.5 focus-within:border-[#FF885B]/50 focus-within:bg-white/15 transition-all">
                         <FiSearch className="size-5 text-neutral-400 shrink-0" />
@@ -142,7 +201,6 @@ export default function DiscoverPanel({ currentUser }) {
                             Search
                         </button>
                     </div>
-                    {/* Suggestions Dropdown */}
                     {showSuggestions && filteredSuggestions.length > 0 && (
                         <div className="absolute top-full mt-2 left-0 right-0 bg-white rounded-xl shadow-xl border border-neutral-100 overflow-hidden z-20">
                             {filteredSuggestions.map((skill) => (
@@ -164,7 +222,6 @@ export default function DiscoverPanel({ currentUser }) {
                     )}
                 </form>
 
-                {/* Popular Skill Tags */}
                 <div className="flex flex-wrap gap-2 mt-4">
                     <span className="text-xs text-neutral-500 font-sora py-1">Trending:</span>
                     {popularSkills.map((skill) => (
@@ -172,7 +229,8 @@ export default function DiscoverPanel({ currentUser }) {
                             key={skill}
                             onClick={() => {
                                 setSearchQuery(skill)
-                                fetchUsers(skill)
+                                setLoading(true)
+                                fetchUsers(skill).then(() => setLoading(false))
                             }}
                             className="px-3 py-1 rounded-full text-xs font-sora font-medium bg-white/5 text-neutral-300 border border-white/10 hover:border-[#FF885B]/40 hover:text-[#FF885B] transition-all"
                         >
@@ -182,15 +240,14 @@ export default function DiscoverPanel({ currentUser }) {
                 </div>
             </div>
 
-            {/* Controls Bar */}
+            {/* Controls */}
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-2">
-                    {/* Mode Toggle */}
                     <button
-                        onClick={() => { setMode("all"); fetchUsers(searchQuery) }}
+                        onClick={() => { setMode("all"); setLoading(true); fetchUsers(searchQuery).then(() => setLoading(false)) }}
                         className={`px-4 py-2 rounded-full text-xs font-sora font-medium transition-all ${mode === "all"
-                            ? "bg-neutral-900 text-white shadow-sm"
-                            : "bg-white text-neutral-600 border border-neutral-200 hover:border-neutral-400"
+                                ? "bg-neutral-900 text-white shadow-sm"
+                                : "bg-white text-neutral-600 border border-neutral-200 hover:border-neutral-400"
                             }`}
                     >
                         <FiUsers className="inline mr-1.5 size-3.5" />
@@ -200,16 +257,14 @@ export default function DiscoverPanel({ currentUser }) {
                         <button
                             onClick={() => setMode("matches")}
                             className={`px-4 py-2 rounded-full text-xs font-sora font-medium transition-all ${mode === "matches"
-                                ? "bg-[#FF885B] text-white shadow-sm"
-                                : "bg-white text-neutral-600 border border-neutral-200 hover:border-[#FF885B]"
+                                    ? "bg-[#FF885B] text-white shadow-sm"
+                                    : "bg-white text-neutral-600 border border-neutral-200 hover:border-[#FF885B]"
                                 }`}
                         >
                             🤝 My Matches ({matches.length})
                         </button>
                     )}
                 </div>
-
-                {/* Sort */}
                 <div className="flex items-center gap-2">
                     <FiFilter className="size-3.5 text-neutral-400" />
                     <select
@@ -224,7 +279,7 @@ export default function DiscoverPanel({ currentUser }) {
                 </div>
             </div>
 
-            {/* Alert for unregistered users */}
+            {/* Alert */}
             {!currentUser && (
                 <div className="flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl text-sm font-sora text-amber-800 border border-amber-100">
                     <FiAlertCircle className="size-5 shrink-0 text-amber-500" />
@@ -252,7 +307,6 @@ export default function DiscoverPanel({ currentUser }) {
                 </div>
             ) : (
                 <>
-                    {/* Results Count */}
                     <p className="text-xs font-sora text-neutral-400 px-1">
                         Showing {displayList.length} {mode === "matches" ? "matches" : "users"}
                         {searchQuery && <> for <span className="text-[#FF885B] font-medium">&quot;{searchQuery}&quot;</span></>}
@@ -265,6 +319,7 @@ export default function DiscoverPanel({ currentUser }) {
                                 matchData={user._matchData}
                                 currentUserId={currentUser?.id}
                                 onSendCollab={handleSendCollab}
+                                githubData={user.githubUsername ? (githubDataMap[user.githubUsername] || githubCache[user.githubUsername] || null) : null}
                             />
                         ))}
                     </div>
