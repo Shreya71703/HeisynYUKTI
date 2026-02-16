@@ -22,6 +22,7 @@ const data = {
     button_five_text: "Resume",
     button_four_text: "Interview Q&A",
     button_six_text: "Live Interview",
+    button_six_link: "https://interview-x-918130002834.us-west1.run.app",
     button_seven_text: "Moral Support",
     button_three_text: "Job Portal",
     button_three_link: "https://job-finder-henna-one.vercel.app"
@@ -38,9 +39,9 @@ export default function CareerNavigation() {
 
             case "Roadmap":
                 return <RoadmapComponents />
-            case "Courses": 
+            case "Courses":
                 return <CourseComponents />
-            case "Resume": 
+            case "Resume":
                 return <ResumeComponents />
             case "Interview Q&A":
                 return <InterviewQAComponents />
@@ -62,7 +63,7 @@ export default function CareerNavigation() {
         <div className="space-y-6">
             <div className="flex items-center justify-center flex-wrap md:justify-normal gap-2 md:gap-4">
                 {
-                    
+
                     activeLink === "Roadmap" ? (
                         <DotButtonDark onClick={() => setActiveLink("Roadmap")}>
                             {data.button_two_text}
@@ -72,10 +73,10 @@ export default function CareerNavigation() {
                             {data.button_two_text}
                         </DotButton>
                     )
-                
+
                 }
                 {
-                
+
                     activeLink === "Courses" ? (
                         <DotButtonDark onClick={() => setActiveLink("Courses")}>
                             {data.button_one_text}
@@ -85,10 +86,10 @@ export default function CareerNavigation() {
                             {data.button_one_text}
                         </DotButton>
                     )
-                
+
                 }
                 {
-                
+
                     activeLink === "Resume" ? (
                         <DotButtonDark onClick={() => setActiveLink("Resume")}>
                             {data.button_five_text}
@@ -98,10 +99,10 @@ export default function CareerNavigation() {
                             {data.button_five_text}
                         </DotButton>
                     )
-                
+
                 }
                 {
-                
+
                     activeLink === "Interview Q&A" ? (
                         <DotButtonDark onClick={() => setActiveLink("Interview Q&A")}>
                             {data.button_four_text}
@@ -111,34 +112,27 @@ export default function CareerNavigation() {
                             {data.button_four_text}
                         </DotButton>
                     )
-                
+
                 }
-                {
-                
-                activeLink === "Moral Support" ? (
-                    <DotButtonDark onClick={() => setActiveLink("Moral Support")}>
-                        {data.button_seven_text}
-                    </DotButtonDark>
-                ) : (
-                    <DotButton onClick={() => setActiveLink("Moral Support")}>
-                        {data.button_seven_text}
+                <Link href={data.button_six_link} target="_blank">
+                    <DotButton>
+                        {data.button_six_text}
+                        <span><FiArrowUpRight /></span>
                     </DotButton>
-                )
-            
-            }
-                {/* {
-                
-                    activeLink === "Live Interview" ? (
-                        <DotButtonDark onClick={() => setActiveLink("Live Interview")}>
-                            {data.button_six_text}
+                </Link>
+                {
+
+                    activeLink === "Moral Support" ? (
+                        <DotButtonDark onClick={() => setActiveLink("Moral Support")}>
+                            {data.button_seven_text}
                         </DotButtonDark>
                     ) : (
-                        <DotButton onClick={() => setActiveLink("Live Interview")}>
-                            {data.button_six_text}
+                        <DotButton onClick={() => setActiveLink("Moral Support")}>
+                            {data.button_seven_text}
                         </DotButton>
                     )
-                
-                } */}
+
+                }
                 {/* {
                 
                     activeLink === "Job Portal" ? (
@@ -152,15 +146,15 @@ export default function CareerNavigation() {
                     )
                 
                 } */}
-                <Link href={ data.button_three_link }>
+                <Link href={data.button_three_link}>
                     <DotButton>
-                        { data.button_three_text }
+                        {data.button_three_text}
                         <span className=""><FiArrowUpRight /></span>
                     </DotButton>
                 </Link>
             </div>
             <div className="rounded-xl bg-neutral-100 min-h-dvh p-4">
-                { renderComponent() }
+                {renderComponent()}
             </div>
         </div>
 
