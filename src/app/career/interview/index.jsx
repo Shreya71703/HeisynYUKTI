@@ -1,9 +1,8 @@
-import { useState, useEffect, useCallback } from "react"
-import CategorySelector from "@/app/components/category-selector"
+import { useState, useCallback } from "react"
 import QAAccordion from "./qa-accordion"
 import PrimaryButtonDark from "@/app/components/buttons/primary/primary-dark"
 import { IoMdRefresh } from "react-icons/io"
-import { FiSearch, FiGlobe, FiBookOpen, FiAlertCircle, FiExternalLink, FiLoader, FiClock } from "react-icons/fi"
+import { FiSearch, FiGlobe, FiBookOpen, FiExternalLink, FiLoader, FiClock } from "react-icons/fi"
 import { GoogleGenerativeAI } from "@google/generative-ai"
 
 // Function to evaluate the response
@@ -29,55 +28,44 @@ const evaluateResponse = async (question, answer) => {
 
 export default function InterviewQAComponents() {
     const [topicInput, setTopicInput] = useState("")
-    const [activeTopic, setActiveTopic] = useState("Python")
+    const [activeTopic, setActiveTopic] = useState("")
     const [company, setCompany] = useState("")
     const [companyInput, setCompanyInput] = useState("")
     const [language, setLanguage] = useState("English")
     const [questions, setQuestions] = useState([])
     const [isLoading, setIsLoading] = useState(false)
-    const [error, setError] = useState(null)
     const [ratings, setRatings] = useState({})
     const [dataInfo, setDataInfo] = useState(null)
     const [scrapingStages, setScrapingStages] = useState([])
     const [showScraping, setShowScraping] = useState(false)
-
-    // Preset categories
-    const presetCategories = [
-        "Python", "JavaScript", "React",
-        "Frontend Web Development", "Backend Web Development",
-        "Data Structures & Algorithms", "System Design",
-        "Machine Learning", "DevOps",
-        "Marketing", "Sales", "Digital Marketing",
-        "Human Resources", "Finance", "Management",
-        "Data Science", "Product Management",
-    ]
+    const [hasSearched, setHasSearched] = useState(false)
 
     const languages = ["English", "Hindi", "Spanish", "French", "German", "Chinese", "Japanese", "Korean", "Arabic"]
-    const companySuggestions = ["Google", "Amazon", "Microsoft", "Meta", "Apple", "Netflix", "Flipkart", "Infosys", "TCS", "Wipro"]
+    const companySuggestions = ["Google", "Amazon", "Microsoft", "Meta", "Apple", "Flipkart", "Infosys", "TCS"]
 
     // Fetch questions with scraping animation
     const fetchQuestions = useCallback(async (topic) => {
         if (!topic) return
         setIsLoading(true)
-        setError(null)
+        setHasSearched(true)
         setShowScraping(true)
         setScrapingStages([])
+        setQuestions([])
+        setDataInfo(null)
 
-        // Simulate scraping stages for visual feedback
+        // Show scraping stages progressively
         const stages = [
-            { text: "🔍 Searching curated question bank...", delay: 400 },
-            { text: "🌐 Connecting to web sources...", delay: 800 },
-            { text: "📄 Scraping GeeksForGeeks...", delay: 1200 },
-            { text: "📄 Scraping Indeed...", delay: 1800 },
-            { text: "📄 Scraping Glassdoor...", delay: 2200 },
-            { text: "📊 Analyzing and ranking questions...", delay: 2600 },
-            { text: "✅ Preparing results...", delay: 3000 },
+            "🔍 Searching curated question bank...",
+            "🌐 Connecting to web sources...",
+            "📄 Scraping GeeksForGeeks...",
+            "📄 Scraping Indeed...",
+            "📊 Analyzing and ranking questions...",
+            "✅ Preparing results...",
         ]
 
-        // Show stages progressively
-        for (const stage of stages) {
-            await new Promise((r) => setTimeout(r, stage.delay > 0 ? 400 : 0))
-            setScrapingStages((prev) => [...prev, stage.text])
+        for (let i = 0; i < stages.length; i++) {
+            await new Promise((r) => setTimeout(r, 400))
+            setScrapingStages((prev) => [...prev, stages[i]])
         }
 
         try {
@@ -92,32 +80,24 @@ export default function InterviewQAComponents() {
             setDataInfo(data)
         } catch (err) {
             console.error("Error:", err)
-            setError("Failed to load questions. Please try again.")
+            setQuestions([])
         } finally {
             setIsLoading(false)
             setTimeout(() => setShowScraping(false), 500)
         }
     }, [company, language])
 
-    // Fetch on category change
-    useEffect(() => {
-        fetchQuestions(activeTopic)
-    }, [activeTopic]) // eslint-disable-line react-hooks/exhaustive-deps
-
     const handleTopicSearch = (e) => {
         e.preventDefault()
         if (topicInput.trim()) {
             setActiveTopic(topicInput.trim())
+            setRatings({})
+            fetchQuestions(topicInput.trim())
         }
     }
 
-    const handleCompanySearch = (e) => {
-        e.preventDefault()
-        setCompany(companyInput)
-        fetchQuestions(activeTopic)
-    }
-
     const handleRefresh = () => {
+        if (!activeTopic) return
         setRatings({})
         fetchQuestions(activeTopic)
     }
@@ -138,23 +118,23 @@ export default function InterviewQAComponents() {
         return "bg-amber-100 text-amber-700"
     }
 
-    const methodBadge = {
-        scraped: { label: "🌐 Web Scraped", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-        curated: { label: "📚 Curated Library", color: "bg-blue-50 text-blue-700 border-blue-200" },
-        generated: { label: "⚡ Auto-Generated", color: "bg-purple-50 text-purple-700 border-purple-200" },
-        "company+scraped": { label: "🏢 Company + Scraped", color: "bg-orange-50 text-orange-700 border-orange-200" },
-        "company+curated": { label: "🏢 Company + Curated", color: "bg-orange-50 text-orange-700 border-orange-200" },
+    const methodLabel = {
+        scraped: "🌐 Web Scraped",
+        curated: "📚 Curated Library",
+        generated: "⚡ Auto-Generated",
+        "company+scraped": "🏢 Company + Scraped",
+        "company+curated": "🏢 Company + Curated",
     }
 
     return (
         <section className="space-y-5">
-            {/* Free-text Topic Search */}
+            {/* Search Bar */}
             <form onSubmit={handleTopicSearch} className="relative">
                 <div className="flex items-center gap-3 bg-white rounded-xl border border-neutral-200 px-4 py-3 shadow-sm focus-within:border-[#FF885B] focus-within:shadow-md transition-all">
                     <FiSearch className="size-5 text-neutral-400 shrink-0" />
                     <input
                         type="text"
-                        placeholder="Search any topic — Marketing, Python, Sales, Machine Learning, Finance..."
+                        placeholder="Search any topic — Marketing, Python, Sales, Machine Learning, Finance, HR..."
                         className="flex-1 bg-transparent outline-none text-neutral-700 font-sora text-sm placeholder:text-neutral-400"
                         value={topicInput}
                         onChange={(e) => setTopicInput(e.target.value)}
@@ -168,49 +148,51 @@ export default function InterviewQAComponents() {
                 </div>
             </form>
 
-            {/* Preset Category Buttons */}
-            <CategorySelector
-                categories={presetCategories}
-                selectedCategory={activeTopic}
-                onSelect={(cat) => { setActiveTopic(cat); setTopicInput("") }}
-            />
-
             {/* Language + Company Row */}
             <div className="flex flex-wrap items-center gap-3">
-                {/* Language Selector */}
+                {/* Language Selector — clean dropdown */}
                 <div className="flex items-center gap-2">
                     <FiGlobe className="size-4 text-neutral-400" />
                     <select
                         value={language}
-                        onChange={(e) => { setLanguage(e.target.value); fetchQuestions(activeTopic) }}
-                        className="bg-white border border-neutral-200 rounded-lg px-3 py-2 text-xs font-sora text-neutral-600 outline-none focus:border-[#FF885B]"
+                        onChange={(e) => setLanguage(e.target.value)}
+                        className="bg-white border border-neutral-200 rounded-lg px-3 py-2 text-xs font-sora text-neutral-600 outline-none focus:border-[#FF885B] cursor-pointer"
                     >
                         {languages.map((lang) => (
                             <option key={lang} value={lang}>{lang}</option>
                         ))}
+                        <option value="Other">Other (Specify in search)</option>
                     </select>
                 </div>
 
                 {/* Company Filter */}
-                <form onSubmit={handleCompanySearch} className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                     <input
                         type="text"
-                        placeholder="Filter by company (optional)"
-                        className="bg-white border border-neutral-200 rounded-lg px-3 py-2 text-xs font-sora text-neutral-600 outline-none focus:border-[#FF885B] w-48"
+                        placeholder="Company (optional)"
+                        className="bg-white border border-neutral-200 rounded-lg px-3 py-2 text-xs font-sora text-neutral-600 outline-none focus:border-[#FF885B] w-40"
                         value={companyInput}
                         onChange={(e) => setCompanyInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setCompany(companyInput) } }}
                     />
-                    <button type="submit" className="px-3 py-2 bg-neutral-800 text-white rounded-lg text-xs font-sora hover:bg-[#FF885B] transition-colors">
+                    <button
+                        onClick={() => { setCompany(companyInput); if (activeTopic) fetchQuestions(activeTopic) }}
+                        className="px-3 py-2 bg-neutral-800 text-white rounded-lg text-xs font-sora hover:bg-[#FF885B] transition-colors"
+                    >
                         Filter
                     </button>
-                </form>
+                </div>
 
                 {/* Quick Company Tags */}
                 <div className="flex items-center gap-1.5 flex-wrap">
-                    {companySuggestions.slice(0, 5).map((c) => (
+                    {companySuggestions.map((c) => (
                         <button
                             key={c}
-                            onClick={() => { setCompanyInput(c); setCompany(c); fetchQuestions(activeTopic) }}
+                            onClick={() => {
+                                setCompanyInput(c)
+                                setCompany(c)
+                                if (activeTopic) fetchQuestions(activeTopic)
+                            }}
                             className={`px-2.5 py-1 rounded-full text-[10px] font-sora font-medium border transition-colors ${company === c
                                     ? "bg-neutral-900 text-white border-neutral-900"
                                     : "bg-white text-neutral-500 border-neutral-200 hover:border-neutral-400"
@@ -221,7 +203,7 @@ export default function InterviewQAComponents() {
                     ))}
                     {company && (
                         <button
-                            onClick={() => { setCompany(""); setCompanyInput(""); fetchQuestions(activeTopic) }}
+                            onClick={() => { setCompany(""); setCompanyInput("") }}
                             className="px-2.5 py-1 rounded-full text-[10px] font-sora font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
                         >
                             ✕ Clear
@@ -238,11 +220,7 @@ export default function InterviewQAComponents() {
                         Scraping in progress...
                     </div>
                     {scrapingStages.map((stage, i) => (
-                        <div
-                            key={i}
-                            className="text-neutral-400 pl-2 animate-pulse"
-                            style={{ animationDelay: `${i * 100}ms` }}
-                        >
+                        <div key={i} className="text-neutral-400 pl-2" style={{ animationDelay: `${i * 100}ms` }}>
                             <span className="text-green-400">{'>'}</span> {stage}
                         </div>
                     ))}
@@ -258,10 +236,9 @@ export default function InterviewQAComponents() {
             {/* Data Source Info */}
             {dataInfo && !isLoading && !showScraping && (
                 <div className="flex flex-wrap items-center gap-2 px-1">
-                    {/* Method badge */}
-                    {methodBadge[dataInfo.method] && (
-                        <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-sora font-medium border ${methodBadge[dataInfo.method].color}`}>
-                            {methodBadge[dataInfo.method].label}
+                    {methodLabel[dataInfo.method] && (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-sora font-medium border bg-neutral-50 text-neutral-600 border-neutral-200">
+                            {methodLabel[dataInfo.method]}
                         </span>
                     )}
                     <span className="text-xs text-neutral-400 font-sora">
@@ -273,18 +250,12 @@ export default function InterviewQAComponents() {
                             {new Date(dataInfo.scrapedAt).toLocaleTimeString()}
                         </span>
                     )}
-                    {/* Source links */}
                     {dataInfo.sources?.length > 0 && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs text-neutral-400 font-sora">Sources:</span>
                             {dataInfo.sources.map((src, i) => (
-                                <a
-                                    key={i}
-                                    href={src.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-[10px] font-sora text-blue-500 hover:text-blue-700 underline"
-                                >
+                                <a key={i} href={src.url} target="_blank" rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-0.5 text-[10px] font-sora text-blue-500 hover:text-blue-700 underline">
                                     {src.name} ({src.questionsFound})
                                     <FiExternalLink className="size-2.5" />
                                 </a>
@@ -294,31 +265,26 @@ export default function InterviewQAComponents() {
                 </div>
             )}
 
-            {/* Questions List */}
-            <div className="flex flex-col px-4 rounded-xl bg-white h-full w-full">
-                {!isLoading && !showScraping && error ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <FiAlertCircle className="size-8 text-red-400 mb-2" />
-                        <p className="text-red-500 font-sora text-sm mb-3">{error}</p>
-                        <button
-                            onClick={handleRefresh}
-                            className="px-5 py-2 rounded-full bg-neutral-900 text-white font-sora text-sm hover:bg-[#FF885B] transition-colors"
-                        >
-                            Try Again
-                        </button>
+            {/* Questions or Empty State */}
+            <div className="flex flex-col px-4 rounded-xl bg-white h-full w-full min-h-[200px]">
+                {!hasSearched ? (
+                    <div className="flex flex-col items-center justify-center py-16 text-center">
+                        <FiSearch className="size-12 text-neutral-200 mb-4" />
+                        <p className="text-neutral-500 font-sora text-base font-medium mb-1">Search for interview questions</p>
+                        <p className="text-neutral-400 font-sora text-sm max-w-md">
+                            Type any topic above — <span className="text-[#FF885B]">Marketing</span>, <span className="text-[#FF885B]">Python</span>, <span className="text-[#FF885B]">Sales</span>, <span className="text-[#FF885B]">Finance</span>, <span className="text-[#FF885B]">React</span> — and hit Search. We&apos;ll scrape real questions from the web for you.
+                        </p>
                     </div>
-                ) : !isLoading && !showScraping && questions.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <FiBookOpen className="size-8 text-neutral-300 mb-2" />
-                        <p className="text-neutral-400 font-sora text-sm">No questions found. Try a different topic.</p>
+                ) : !showScraping && questions.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-16 text-center">
+                        <FiBookOpen className="size-10 text-neutral-200 mb-3" />
+                        <p className="text-neutral-400 font-sora text-sm mb-3">No questions found for &quot;{activeTopic}&quot;. Try a different topic.</p>
                     </div>
                 ) : !showScraping && (
                     questions.map((item, index) => (
                         <div key={index} className="relative">
                             <div className="flex items-center gap-2 pt-3 px-1 flex-wrap">
-                                <span className="text-[10px] font-sora text-neutral-300 font-mono">
-                                    Q{index + 1}
-                                </span>
+                                <span className="text-[10px] font-sora text-neutral-300 font-mono">Q{index + 1}</span>
                                 {item.difficulty && (
                                     <span className={`px-2 py-0.5 rounded text-[10px] font-sora font-semibold ${difficultyColor(item.difficulty)}`}>
                                         {item.difficulty}
@@ -346,12 +312,15 @@ export default function InterviewQAComponents() {
                 )}
             </div>
 
-            <div className="flex justify-center">
-                <PrimaryButtonDark onClick={handleRefresh} disabled={isLoading}>
-                    Refresh Questions
-                    <span className="text-xl"><IoMdRefresh /></span>
-                </PrimaryButtonDark>
-            </div>
+            {/* Refresh Button */}
+            {hasSearched && (
+                <div className="flex justify-center">
+                    <PrimaryButtonDark onClick={handleRefresh} disabled={isLoading || !activeTopic}>
+                        Refresh Questions
+                        <span className="text-xl"><IoMdRefresh /></span>
+                    </PrimaryButtonDark>
+                </div>
+            )}
         </section>
     )
 }
