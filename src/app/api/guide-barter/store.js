@@ -1,18 +1,216 @@
-// In-memory data store for Guide Barter System
-// This persists during server runtime only
+// Persistent data store for Guide Barter System
+// Stores data in a JSON file so it survives server restarts
 
-const store = {
-    users: [],
-    messages: [],
-    nextUserId: 1,
-    nextMessageId: 1,
-};
+import fs from "fs";
+import path from "path";
+
+const DATA_FILE = path.join(process.cwd(), "guide-barter-data.json");
+
+// Default seed profiles — always available
+const SEED_PROFILES = [
+    {
+        id: "seed-1",
+        name: "Sanskar Dubey",
+        avatar: null,
+        skillsKnown: ["JavaScript", "React", "Node.js", "Next.js", "Python"],
+        skillsWanted: ["Machine Learning", "DevOps", "Docker"],
+        githubUsername: "dubeysanskar",
+        leetcodeUsername: "",
+        targetCareer: "Full Stack Developer",
+        resumeLink: "",
+        projectLinks: [],
+        studentId: "",
+        collegeName: "",
+        yearOfStudy: "",
+        githubToken: "",
+        createdAt: "2026-01-01T00:00:00.000Z",
+    },
+    {
+        id: "seed-2",
+        name: "Shreya Mishra",
+        avatar: null,
+        skillsKnown: ["Python", "Machine Learning", "Data Science", "TensorFlow"],
+        skillsWanted: ["React", "Next.js", "UI Design"],
+        githubUsername: "Shreya71703",
+        leetcodeUsername: "",
+        targetCareer: "Data Scientist",
+        resumeLink: "",
+        projectLinks: [],
+        studentId: "",
+        collegeName: "",
+        yearOfStudy: "",
+        githubToken: "",
+        createdAt: "2026-01-01T00:00:00.000Z",
+    },
+    {
+        id: "seed-3",
+        name: "Arjun Patel",
+        avatar: null,
+        skillsKnown: ["Java", "Spring Boot", "SQL", "Microservices", "AWS"],
+        skillsWanted: ["React", "TypeScript", "GraphQL"],
+        githubUsername: "",
+        leetcodeUsername: "arjunp_dev",
+        targetCareer: "Backend Developer",
+        resumeLink: "",
+        projectLinks: [],
+        studentId: "2024CS045",
+        collegeName: "IIT Delhi",
+        yearOfStudy: "3rd Year",
+        githubToken: "",
+        createdAt: "2026-01-05T00:00:00.000Z",
+    },
+    {
+        id: "seed-4",
+        name: "Priya Sharma",
+        avatar: null,
+        skillsKnown: ["Flutter", "Dart", "Firebase", "UI Design", "Figma"],
+        skillsWanted: ["Backend Development", "Node.js", "PostgreSQL"],
+        githubUsername: "",
+        leetcodeUsername: "",
+        targetCareer: "Mobile App Developer",
+        resumeLink: "",
+        projectLinks: [],
+        studentId: "2023IT012",
+        collegeName: "NIT Trichy",
+        yearOfStudy: "4th Year",
+        githubToken: "",
+        createdAt: "2026-01-10T00:00:00.000Z",
+    },
+    {
+        id: "seed-5",
+        name: "Rahul Verma",
+        avatar: null,
+        skillsKnown: ["Docker", "Kubernetes", "CI/CD", "Linux", "Terraform"],
+        skillsWanted: ["Machine Learning", "Python", "Data Engineering"],
+        githubUsername: "",
+        leetcodeUsername: "rahul_devops",
+        targetCareer: "DevOps Engineer",
+        resumeLink: "",
+        projectLinks: [],
+        studentId: "2024EC089",
+        collegeName: "BITS Pilani",
+        yearOfStudy: "2nd Year",
+        githubToken: "",
+        createdAt: "2026-01-15T00:00:00.000Z",
+    },
+    {
+        id: "seed-6",
+        name: "Ananya Gupta",
+        avatar: null,
+        skillsKnown: ["HTML", "CSS", "JavaScript", "Tailwind CSS", "React"],
+        skillsWanted: ["Backend", "Node.js", "MongoDB", "System Design"],
+        githubUsername: "",
+        leetcodeUsername: "",
+        targetCareer: "Frontend Developer",
+        resumeLink: "",
+        projectLinks: [],
+        studentId: "2025CS034",
+        collegeName: "VIT Vellore",
+        yearOfStudy: "1st Year",
+        githubToken: "",
+        createdAt: "2026-01-20T00:00:00.000Z",
+    },
+    {
+        id: "seed-7",
+        name: "Vikram Singh",
+        avatar: null,
+        skillsKnown: ["C++", "DSA", "Competitive Programming", "Python", "SQL"],
+        skillsWanted: ["Web Development", "React", "Cloud Computing"],
+        githubUsername: "",
+        leetcodeUsername: "vikram_cp",
+        targetCareer: "Software Engineer",
+        resumeLink: "",
+        projectLinks: [],
+        studentId: "2024CS078",
+        collegeName: "IIIT Hyderabad",
+        yearOfStudy: "3rd Year",
+        githubToken: "",
+        createdAt: "2026-01-25T00:00:00.000Z",
+    },
+    {
+        id: "seed-8",
+        name: "Neha Reddy",
+        avatar: null,
+        skillsKnown: ["Marketing", "SEO", "Content Writing", "Google Ads", "Analytics"],
+        skillsWanted: ["Python", "Data Analysis", "Power BI"],
+        githubUsername: "",
+        leetcodeUsername: "",
+        targetCareer: "Digital Marketing Specialist",
+        resumeLink: "",
+        projectLinks: [],
+        studentId: "2024BM015",
+        collegeName: "SP Jain",
+        yearOfStudy: "2nd Year",
+        githubToken: "",
+        createdAt: "2026-02-01T00:00:00.000Z",
+    },
+];
+
+// Load data from file, or initialize with seeds
+function loadStore() {
+    try {
+        if (fs.existsSync(DATA_FILE)) {
+            const raw = fs.readFileSync(DATA_FILE, "utf-8");
+            const data = JSON.parse(raw);
+            // Merge seed profiles if missing
+            const existingIds = new Set(data.users.map((u) => u.id));
+            for (const seed of SEED_PROFILES) {
+                if (!existingIds.has(seed.id)) {
+                    data.users.push(seed);
+                }
+            }
+            return data;
+        }
+    } catch (e) {
+        console.error("Failed to load store from file, using defaults", e);
+    }
+    // Default store with seeds
+    return {
+        users: [...SEED_PROFILES],
+        messages: [],
+        nextUserId: 100,
+        nextMessageId: 1,
+    };
+}
+
+function saveStore() {
+    try {
+        fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2), "utf-8");
+    } catch (e) {
+        console.error("Failed to save store to file", e);
+    }
+}
+
+const store = loadStore();
 
 export function getStore() {
     return store;
 }
 
 export function addUser(userData) {
+    // Check if user with same name already exists (prevent duplicates from sync)
+    const existing = store.users.find(
+        (u) => u.name && userData.name && u.name.toLowerCase() === userData.name.toLowerCase()
+    );
+    if (existing) {
+        // Update existing instead of creating duplicate
+        Object.assign(existing, {
+            skillsKnown: userData.skillsKnown || existing.skillsKnown,
+            skillsWanted: userData.skillsWanted || existing.skillsWanted,
+            githubUsername: userData.githubUsername || existing.githubUsername,
+            leetcodeUsername: userData.leetcodeUsername || existing.leetcodeUsername,
+            targetCareer: userData.targetCareer || existing.targetCareer,
+            resumeLink: userData.resumeLink || existing.resumeLink,
+            projectLinks: userData.projectLinks?.length > 0 ? userData.projectLinks : existing.projectLinks,
+            studentId: userData.studentId || existing.studentId,
+            collegeName: userData.collegeName || existing.collegeName,
+            yearOfStudy: userData.yearOfStudy || existing.yearOfStudy,
+            githubToken: userData.githubToken || existing.githubToken,
+        });
+        saveStore();
+        return existing;
+    }
+
     const user = {
         id: String(store.nextUserId++),
         name: userData.name || "Anonymous",
@@ -31,6 +229,7 @@ export function addUser(userData) {
         createdAt: new Date().toISOString(),
     };
     store.users.push(user);
+    saveStore();
     return user;
 }
 
@@ -38,6 +237,7 @@ export function updateUser(id, userData) {
     const index = store.users.findIndex((u) => u.id === id);
     if (index === -1) return null;
     store.users[index] = { ...store.users[index], ...userData };
+    saveStore();
     return store.users[index];
 }
 
@@ -62,52 +262,43 @@ export function findMatches(userId) {
     return store.users
         .filter((u) => u.id !== userId)
         .map((candidate) => {
-            // Skills the candidate knows that the user wants
             const theyTeachMe = candidate.skillsKnown.filter((s) =>
                 user.skillsWanted.some(
                     (w) => w.toLowerCase() === s.toLowerCase()
                 )
             );
-            // Skills the user knows that the candidate wants
             const iTeachThem = user.skillsKnown.filter((s) =>
                 candidate.skillsWanted.some(
                     (w) => w.toLowerCase() === s.toLowerCase()
                 )
             );
 
-            // --- Advanced Weighted Matching Algorithm ---
-
-            // 1. Skill Overlap Score (40% weight) — common skills / target skills
+            // Weighted Matching Algorithm
             const targetSkillsCount = Math.max(user.skillsWanted.length, 1);
             const skillOverlapScore = Math.min(100, (theyTeachMe.length / targetSkillsCount) * 100);
 
-            // 2. Mutual Benefit Score (30% weight) — both sides benefit
             const totalWanted = Math.max(user.skillsWanted.length + candidate.skillsWanted.length, 1);
             const mutualBenefitScore = Math.min(100,
                 ((theyTeachMe.length + iTeachThem.length) / totalWanted) * 100
             );
 
-            // 3. GitHub Language Overlap (20% weight)
             let githubLangScore = 0;
             if (user.githubUsername && candidate.githubUsername) {
-                // Both have GitHub — bonus for shared tech ecosystem
                 const userSkillsLower = user.skillsKnown.map(s => s.toLowerCase());
                 const candidateSkillsLower = candidate.skillsKnown.map(s => s.toLowerCase());
                 const sharedSkills = userSkillsLower.filter(s => candidateSkillsLower.includes(s));
                 const allUniqueSkills = new Set([...userSkillsLower, ...candidateSkillsLower]);
                 githubLangScore = allUniqueSkills.size > 0
-                    ? Math.min(100, (sharedSkills.length / allUniqueSkills.size) * 150) // boosted by 1.5x
+                    ? Math.min(100, (sharedSkills.length / allUniqueSkills.size) * 150)
                     : 0;
             }
 
-            // 4. Diversity Bonus (10% weight) — reward complementary skill sets
             const userSkillSet = new Set(user.skillsKnown.map(s => s.toLowerCase()));
             const candidateUniqueSkills = candidate.skillsKnown.filter(
                 s => !userSkillSet.has(s.toLowerCase())
             );
             const diversityScore = Math.min(100, candidateUniqueSkills.length * 15);
 
-            // Weighted final score
             const matchScore = Math.round(
                 skillOverlapScore * 0.4 +
                 mutualBenefitScore * 0.3 +
@@ -138,10 +329,11 @@ export function addMessage(fromId, toId, content, type = "text") {
         fromId,
         toId,
         content,
-        type, // "text" | "collab_request" | "collab_accept" | "collab_decline"
+        type,
         timestamp: new Date().toISOString(),
     };
     store.messages.push(msg);
+    saveStore();
     return msg;
 }
 
