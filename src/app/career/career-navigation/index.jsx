@@ -51,8 +51,8 @@ export default function CareerNavigation() {
                 return <ResumeAnalyzerComponents />
             case "Moral Support":
                 return <MoralSupport />
-            // case "Live Interview":
-            //     return <LiveInterviewComponents />
+            case "Live Interview":
+                return <LiveInterviewComponents />
             // case "Job Portal":
             //     return <JobPortalComponents />
             default:
@@ -131,12 +131,19 @@ export default function CareerNavigation() {
                     )
 
                 }
-                <Link href={data.button_six_link} target="_blank">
-                    <DotButton>
-                        {data.button_six_text}
-                        <span><FiArrowUpRight /></span>
-                    </DotButton>
-                </Link>
+                {
+
+                    activeLink === "Live Interview" ? (
+                        <DotButtonDark onClick={() => setActiveLink("Live Interview")}>
+                            {data.button_six_text}
+                        </DotButtonDark>
+                    ) : (
+                        <DotButton onClick={() => setActiveLink("Live Interview")}>
+                            {data.button_six_text}
+                        </DotButton>
+                    )
+
+                }
                 {
 
                     activeLink === "Moral Support" ? (
