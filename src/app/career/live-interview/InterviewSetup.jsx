@@ -10,7 +10,7 @@ import {
 
 const INTERVIEWERS = [
     { id: 'emma', name: 'Dr. Emma', voice: 'Kore', image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&h=300&fit=crop&crop=top', desc: 'Professional, warm, structured' },
-    { id: 'john', name: 'Dr. John', voice: 'Fenrir', image: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=300&fit=crop&crop=top', desc: 'Technical, in-depth, analytical' },
+    { id: 'john', name: 'Dr. John', voice: 'Puck', image: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=300&fit=crop&crop=top', desc: 'Technical, in-depth, analytical' },
 ]
 
 const ROLES = [

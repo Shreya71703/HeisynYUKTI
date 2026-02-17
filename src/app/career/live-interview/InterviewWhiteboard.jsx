@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import {
     FiEdit2, FiTrash2, FiDownload, FiCornerUpLeft,
     FiSquare, FiCircle, FiArrowRight, FiMinus, FiCloud,
@@ -36,43 +36,60 @@ export default function InterviewWhiteboard() {
     const [lineWidth, setLineWidth] = useState(2)
     const [snapshot, setSnapshot] = useState(null)
     const [history, setHistory] = useState([])
+    const [canvasReady, setCanvasReady] = useState(false)
     const startPos = useRef({ x: 0, y: 0 })
 
-    useEffect(() => {
-        handleResize()
-        window.addEventListener('resize', handleResize)
-        return () => window.removeEventListener('resize', handleResize)
-    }, [])
-
-    const handleResize = () => {
+    const handleResize = useCallback(() => {
         if (!containerRef.current || !canvasRef.current) return
         const { width, height } = containerRef.current.getBoundingClientRect()
         if (width === 0 || height === 0) return
 
         const canvas = canvasRef.current
         const ctx = canvas.getContext('2d')
+
+        // Preserve existing content during resize
+        let tempCanvas = null
         if (ctx && canvas.width > 0 && canvas.height > 0) {
-            const tempCanvas = document.createElement('canvas')
+            tempCanvas = document.createElement('canvas')
             const tempCtx = tempCanvas.getContext('2d')
             if (tempCtx) {
                 tempCanvas.width = canvas.width
                 tempCanvas.height = canvas.height
                 tempCtx.drawImage(canvas, 0, 0)
-                canvas.width = width
-                canvas.height = height
-                ctx.drawImage(tempCanvas, 0, 0)
-                ctx.lineCap = 'round'
-                ctx.lineJoin = 'round'
-            }
-        } else {
-            canvas.width = width
-            canvas.height = height
-            if (ctx) {
-                ctx.lineCap = 'round'
-                ctx.lineJoin = 'round'
             }
         }
-    }
+
+        canvas.width = width
+        canvas.height = height
+
+        if (ctx) {
+            ctx.lineCap = 'round'
+            ctx.lineJoin = 'round'
+            if (tempCanvas) {
+                ctx.drawImage(tempCanvas, 0, 0)
+            }
+        }
+        setCanvasReady(true)
+    }, [])
+
+    // Use ResizeObserver for reliable canvas sizing
+    useEffect(() => {
+        const container = containerRef.current
+        if (!container) return
+
+        // Initial size with small delay to ensure layout is ready
+        const initTimeout = setTimeout(handleResize, 50)
+
+        const observer = new ResizeObserver(() => {
+            handleResize()
+        })
+        observer.observe(container)
+
+        return () => {
+            clearTimeout(initTimeout)
+            observer.disconnect()
+        }
+    }, [handleResize])
 
     const saveToHistory = () => {
         const canvas = canvasRef.current
@@ -92,15 +109,26 @@ export default function InterviewWhiteboard() {
         }
     }
 
+    const getCanvasPos = (e) => {
+        const canvas = canvasRef.current
+        if (!canvas) return { x: 0, y: 0 }
+        const rect = canvas.getBoundingClientRect()
+        // Handle both mouse and touch events
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY
+        return {
+            x: clientX - rect.left,
+            y: clientY - rect.top
+        }
+    }
+
     const onMouseDown = (e) => {
         const canvas = canvasRef.current
         const ctx = canvas?.getContext('2d')
         if (!canvas || !ctx) return
 
         saveToHistory()
-        const rect = canvas.getBoundingClientRect()
-        const x = e.clientX - rect.left
-        const y = e.clientY - rect.top
+        const { x, y } = getCanvasPos(e)
 
         startPos.current = { x, y }
         setIsDrawing(true)
@@ -118,9 +146,7 @@ export default function InterviewWhiteboard() {
         const ctx = canvas?.getContext('2d')
         if (!canvas || !ctx || !snapshot) return
 
-        const rect = canvas.getBoundingClientRect()
-        const x = e.clientX - rect.left
-        const y = e.clientY - rect.top
+        const { x, y } = getCanvasPos(e)
 
         if (tool === 'pen' || tool === 'eraser') {
             ctx.lineTo(x, y)
@@ -219,12 +245,12 @@ export default function InterviewWhiteboard() {
     })
 
     return (
-        <div ref={containerRef} style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#fff', overflow: 'hidden', borderRadius: 12 }}>
+        <div ref={containerRef} style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minHeight: 400, background: '#fff', overflow: 'hidden', borderRadius: 12 }}>
             {/* Toolbar */}
             <div style={{
                 padding: '8px 12px', borderBottom: '1px solid #e5e7eb',
                 display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6,
-                background: '#fafafa',
+                background: '#fafafa', flexShrink: 0,
             }}>
                 {/* Tools */}
                 <div style={{ display: 'flex', background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: 3 }}>
@@ -273,7 +299,7 @@ export default function InterviewWhiteboard() {
             </div>
 
             {/* Canvas */}
-            <div style={{ flex: 1, position: 'relative', background: '#fff', cursor: 'crosshair', overflow: 'hidden' }}>
+            <div style={{ flex: 1, position: 'relative', background: '#fff', cursor: 'crosshair', overflow: 'hidden', minHeight: 300 }}>
                 {/* Grid */}
                 <div style={{
                     position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.4,
@@ -286,7 +312,10 @@ export default function InterviewWhiteboard() {
                     onMouseMove={onMouseMove}
                     onMouseUp={onMouseUp}
                     onMouseLeave={onMouseUp}
-                    style={{ touchAction: 'none' }}
+                    onTouchStart={onMouseDown}
+                    onTouchMove={onMouseMove}
+                    onTouchEnd={onMouseUp}
+                    style={{ display: 'block', width: '100%', height: '100%', touchAction: 'none' }}
                 />
             </div>
         </div>

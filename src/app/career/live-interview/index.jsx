@@ -21,7 +21,7 @@ const JUDGE_MODEL = 'gemini-2.5-flash'
 
 const INTERVIEWERS = {
     emma: { name: 'Dr. Emma', voice: 'Kore', image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=800&h=600&fit=crop&crop=top' },
-    john: { name: 'Dr. John', voice: 'Fenrir', image: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=800&h=600&fit=crop&crop=top' },
+    john: { name: 'Dr. John', voice: 'Puck', image: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=800&h=600&fit=crop&crop=top' },
 }
 
 const PISTON_API = 'https://emkc.org/api/v2/piston'
@@ -132,7 +132,12 @@ export default function LiveInterviewComponents() {
         prompt += `- Difficulty level is ${config.difficulty}: adjust question complexity accordingly.\n`
         prompt += `- Be professional, encouraging, and give brief feedback after each answer.\n`
         prompt += `- Pace yourself for a ${config.duration}-minute session.\n`
-        prompt += `- Start by introducing yourself and the interview format.\n\n`
+        prompt += `- Start by introducing yourself and the interview format.\n`
+        prompt += `- Speak naturally and conversationally, like a real human interviewer.\n`
+        prompt += `- Keep each response concise — under 30 seconds of speech. Avoid long monologues.\n`
+        prompt += `- Use natural transitions and brief acknowledgments like "Great", "Interesting", "That makes sense".\n`
+        prompt += `- Respond promptly without unnecessary pauses. Be warm, engaging, and human-like.\n`
+        prompt += `- Do NOT repeat the question back. Do NOT use overly formal or robotic language.\n\n`
 
         if (config.resumeText) {
             prompt += `CANDIDATE RESUME:\n${config.resumeText.substring(0, 2000)}\nUse this to personalize questions.\n\n`
@@ -282,15 +287,21 @@ export default function LiveInterviewComponents() {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     language: langMap[language] || language,
-                    version: LANGUAGE_VERSIONS[language] || '*',
+                    version: '*',
                     files: [{ content: code }],
                 }),
             })
             const data = await res.json()
-            const output = data.run?.output || data.run?.stderr || 'No output'
+            // Build output from all possible fields
+            let output = ''
+            if (data.compile?.stderr) output += `Compilation Error:\n${data.compile.stderr}\n`
+            if (data.run?.stdout) output += data.run.stdout
+            else if (data.run?.output) output += data.run.output
+            if (data.run?.stderr) output += (output ? '\n' : '') + data.run.stderr
+            if (!output.trim()) output = data.message || 'No output'
             setConsoleOutput(output)
         } catch (err) {
-            setConsoleOutput('Error: Could not connect to execution service.')
+            setConsoleOutput('Error: Could not connect to execution service. Check your internet connection.')
         } finally { setIsRunning(false) }
     }
 

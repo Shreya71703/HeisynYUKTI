@@ -26,11 +26,54 @@ export async function POST(request) {
             );
         }
 
-        // Use pdf-parse/node which is the proper Node.js export
-        const pdfParse = await import("pdf-parse/node");
-        const parse = pdfParse.default || pdfParse;
-        const data = await parse(buffer);
-        const text = data.text?.trim();
+        let text = "";
+        let numpages = 1;
+
+        // Phase 1: Try pdf-parse (local, fast)
+        try {
+            const pdfParse = (await import("pdf-parse")).default;
+            const data = await pdfParse(buffer);
+            text = data.text?.trim() || "";
+            numpages = data.numpages || 1;
+        } catch (parseErr) {
+            console.warn("pdf-parse failed, trying Gemini fallback:", parseErr.message);
+        }
+
+        // Phase 2: If pdf-parse failed or returned empty, use Gemini Vision
+        if (!text || text.length < 10) {
+            const apiKey = process.env.GEMINI_API_KEY;
+            if (apiKey) {
+                try {
+                    const base64Pdf = buffer.toString("base64");
+                    const response = await fetch(
+                        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+                        {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                contents: [{
+                                    parts: [
+                                        { text: "Extract ALL text content from this PDF resume. Return ONLY the raw text exactly as it appears, preserving structure. No commentary or formatting." },
+                                        { inlineData: { mimeType: "application/pdf", data: base64Pdf } }
+                                    ]
+                                }],
+                                generationConfig: { temperature: 0.1, maxOutputTokens: 8192 }
+                            }),
+                        }
+                    );
+
+                    if (response.ok) {
+                        const geminiData = await response.json();
+                        const extractedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                        if (extractedText.trim().length > 10) {
+                            text = extractedText.trim();
+                        }
+                    }
+                } catch (geminiErr) {
+                    console.warn("Gemini PDF extraction also failed:", geminiErr.message);
+                }
+            }
+        }
 
         if (!text || text.length < 10) {
             return NextResponse.json(
@@ -39,7 +82,7 @@ export async function POST(request) {
             );
         }
 
-        return NextResponse.json({ text, pages: data.numpages || 1 });
+        return NextResponse.json({ text, pages: numpages });
     } catch (error) {
         console.error("PDF parse error:", error.message);
         return NextResponse.json(
