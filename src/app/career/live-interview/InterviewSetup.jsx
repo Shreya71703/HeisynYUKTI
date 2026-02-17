@@ -79,18 +79,32 @@ export default function InterviewSetup({ onStart }) {
         setIsUploadingResume(true)
         setResumeFileName(file.name)
         try {
-            const formData = new FormData()
-            formData.append('file', file)
-            const res = await fetch('/api/resume-analyzer/parse-pdf', { method: 'POST', body: formData })
-            const data = await res.json()
-            if (data.error) {
-                alert(data.error)
+            let text = ''
+            if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+                // Parse PDF entirely on client side using pdfjs-dist
+                const arrayBuffer = await file.arrayBuffer()
+                const pdfjsLib = await import('pdfjs-dist/build/pdf.mjs')
+                pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i)
+                    const content = await page.getTextContent()
+                    text += content.items.map((item) => item.str).join(' ') + '\n'
+                }
+                text = text.trim()
+            } else {
+                // Text-based files
+                text = await file.text()
+            }
+            if (!text || text.length < 10) {
+                alert('Could not extract text from this file. Please try a different file or paste your resume text.')
                 setResumeText('')
                 setResumeFileName('')
             } else {
-                setResumeText(data.text || '')
+                setResumeText(text)
             }
         } catch (err) {
+            console.error('Resume parse error:', err)
             alert('Failed to parse resume. Please try again.')
             setResumeText('')
             setResumeFileName('')

@@ -61,6 +61,22 @@ export default function ResumeAnalyzerComponents() {
     const [parsing, setParsing] = useState(false)
     const fileRef = useRef(null)
 
+    const parsePdfClientSide = async (file) => {
+        const arrayBuffer = await file.arrayBuffer()
+        // Dynamic import pdfjs-dist for client-side PDF text extraction
+        const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs")
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+        let fullText = ""
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i)
+            const content = await page.getTextContent()
+            const pageText = content.items.map((item) => item.str).join(" ")
+            fullText += pageText + "\n"
+        }
+        return fullText.trim()
+    }
+
     const handleFileUpload = async (e) => {
         const file = e.target.files?.[0]
         if (!file) return
@@ -68,24 +84,19 @@ export default function ResumeAnalyzerComponents() {
         setUploadedFile(file.name)
         setError("")
 
-        // Handle PDF files via server-side parsing
+        // Handle PDF files — parse entirely on client side (no server call needed)
         if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
             setParsing(true)
             try {
-                const formData = new FormData()
-                formData.append("file", file)
-                const res = await fetch("/api/resume-analyzer/parse-pdf", {
-                    method: "POST",
-                    body: formData,
-                })
-                const data = await res.json()
-                if (data.error) {
-                    setError(data.error)
+                const text = await parsePdfClientSide(file)
+                if (!text || text.length < 10) {
+                    setError("Could not extract text from this PDF. It may be image-based or scanned. Please paste your resume text manually.")
                     setUploadedFile(null)
                 } else {
-                    setResumeText(data.text)
+                    setResumeText(text)
                 }
             } catch (err) {
+                console.error("PDF parse error:", err)
                 setError("Failed to parse PDF. Please paste your resume text manually.")
                 setUploadedFile(null)
             }
