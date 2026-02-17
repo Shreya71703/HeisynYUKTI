@@ -38,10 +38,10 @@ export async function POST(request) {
         // including scanned/image-based PDFs that text-based parsers can't handle
         const base64Pdf = buffer.toString("base64");
 
-        // Try multiple Gemini models for resilience
+        // Try multiple Gemini models for resilience — 2.5 Flash first
         const models = [
+            "gemini-2.5-flash-preview-05-20",
             "gemini-2.0-flash",
-            "gemini-1.5-flash",
         ];
 
         let text = "";
@@ -77,8 +77,9 @@ export async function POST(request) {
                 );
 
                 if (!response.ok) {
-                    lastError = `Gemini ${model}: HTTP ${response.status}`;
-                    console.warn(lastError);
+                    const errBody = await response.text().catch(() => "");
+                    lastError = `Gemini ${model}: HTTP ${response.status} - ${errBody.slice(0, 200)}`;
+                    console.warn("PDF extraction failed:", lastError);
                     continue;
                 }
 
@@ -89,11 +90,12 @@ export async function POST(request) {
                     text = extractedText.trim();
                     break;
                 } else {
-                    lastError = `Gemini ${model}: extracted text too short`;
+                    lastError = `Gemini ${model}: extracted text too short (${extractedText.length} chars)`;
+                    console.warn(lastError);
                 }
             } catch (modelErr) {
                 lastError = `Gemini ${model}: ${modelErr.message}`;
-                console.warn(lastError);
+                console.warn("PDF extraction error:", lastError);
                 continue;
             }
         }
