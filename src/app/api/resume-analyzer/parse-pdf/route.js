@@ -26,67 +26,92 @@ export async function POST(request) {
             );
         }
 
-        let text = "";
-        let numpages = 1;
-
-        // Phase 1: Try pdf-parse (local, fast)
-        try {
-            const pdfParse = (await import("pdf-parse")).default;
-            const data = await pdfParse(buffer);
-            text = data.text?.trim() || "";
-            numpages = data.numpages || 1;
-        } catch (parseErr) {
-            console.warn("pdf-parse failed, trying Gemini fallback:", parseErr.message);
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+            return NextResponse.json(
+                { error: "Server configuration error: API key not set. Please paste your resume text manually." },
+                { status: 500 }
+            );
         }
 
-        // Phase 2: If pdf-parse failed or returned empty, use Gemini Vision
-        if (!text || text.length < 10) {
-            const apiKey = process.env.GEMINI_API_KEY;
-            if (apiKey) {
-                try {
-                    const base64Pdf = buffer.toString("base64");
-                    const response = await fetch(
-                        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-                        {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                contents: [{
-                                    parts: [
-                                        { text: "Extract ALL text content from this PDF resume. Return ONLY the raw text exactly as it appears, preserving structure. No commentary or formatting." },
-                                        { inlineData: { mimeType: "application/pdf", data: base64Pdf } }
-                                    ]
-                                }],
-                                generationConfig: { temperature: 0.1, maxOutputTokens: 8192 }
-                            }),
-                        }
-                    );
+        // Use Gemini to extract text from PDF — works for all PDF types
+        // including scanned/image-based PDFs that text-based parsers can't handle
+        const base64Pdf = buffer.toString("base64");
 
-                    if (response.ok) {
-                        const geminiData = await response.json();
-                        const extractedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
-                        if (extractedText.trim().length > 10) {
-                            text = extractedText.trim();
-                        }
+        // Try multiple Gemini models for resilience
+        const models = [
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
+        ];
+
+        let text = "";
+        let lastError = "";
+
+        for (const model of models) {
+            try {
+                const response = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [
+                                    {
+                                        text: "Extract ALL text content from this PDF document. Return ONLY the raw text exactly as it appears in the document, preserving the structure and order. Do not add any commentary, labels, explanations, or markdown formatting. Just return the plain text content."
+                                    },
+                                    {
+                                        inlineData: {
+                                            mimeType: "application/pdf",
+                                            data: base64Pdf
+                                        }
+                                    }
+                                ]
+                            }],
+                            generationConfig: {
+                                temperature: 0.1,
+                                maxOutputTokens: 8192,
+                            },
+                        }),
                     }
-                } catch (geminiErr) {
-                    console.warn("Gemini PDF extraction also failed:", geminiErr.message);
+                );
+
+                if (!response.ok) {
+                    lastError = `Gemini ${model}: HTTP ${response.status}`;
+                    console.warn(lastError);
+                    continue;
                 }
+
+                const geminiData = await response.json();
+                const extractedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+                if (extractedText.trim().length > 10) {
+                    text = extractedText.trim();
+                    break;
+                } else {
+                    lastError = `Gemini ${model}: extracted text too short`;
+                }
+            } catch (modelErr) {
+                lastError = `Gemini ${model}: ${modelErr.message}`;
+                console.warn(lastError);
+                continue;
             }
         }
 
         if (!text || text.length < 10) {
             return NextResponse.json(
-                { error: "Could not extract text from this PDF. It may be image-based or scanned. Please paste your resume text manually." },
+                {
+                    error: `Could not extract text from this PDF (${lastError}). The file may be corrupted or empty. Please paste your resume text manually.`
+                },
                 { status: 400 }
             );
         }
 
-        return NextResponse.json({ text, pages: numpages });
+        return NextResponse.json({ text, pages: 1 });
     } catch (error) {
         console.error("PDF parse error:", error.message);
         return NextResponse.json(
-            { error: `PDF parsing failed: ${error.message}. Please try pasting your resume text instead.` },
+            { error: `PDF processing failed: ${error.message}. Please try pasting your resume text instead.` },
             { status: 500 }
         );
     }
